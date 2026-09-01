@@ -7,3 +7,4 @@
 * 60911 - Ligorria, Gino Daniel - [ligorriagino@gmail.com](mailto:ligorriagino@gmail.com) - Gligorria
 * 95708 - Argüello, Joaquin - [joaquinarguello255@gmail.com](mailto:joaquinarguello255@gmail.com) - JoaquinArg255
 * 86537 - Rodeyro Contarino, Nicolas - [nicolasrodeyro@gmail.com](mailto:nicolasrodeyro@gmail.com) - NicolasRodeyro
+* 94226 - Olguin, Luca - [olguinluca@gmail.com](mailto:olguinluca@gmail.com) - lucaolguin-utn
