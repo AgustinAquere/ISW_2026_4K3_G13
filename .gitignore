@@ -1,0 +1,22 @@
+# Archivos temporales generales y del sistema
+*.tmp
+*.temp
+*~
+*.swp
+*.bak
+*.log
+
+# Temporales de Microsoft Office (Word, Excel, PowerPoint)
+~$*.doc*
+~$*.xls*
+~$*.ppt*
+
+# Archivos temporales de Windows y sistemas
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Carpetas temporales e cachés
+.cache/
+tmp/
+temp/
