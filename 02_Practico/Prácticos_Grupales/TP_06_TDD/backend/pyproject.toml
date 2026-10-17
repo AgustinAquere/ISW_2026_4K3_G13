@@ -1,0 +1,12 @@
+# Reglas de estilo del grupo: PEP 8 verificado con Ruff.
+[tool.ruff]
+line-length = 79
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/W: pycodestyle (PEP 8), F: pyflakes, I: orden de imports (isort),
+# N: nombres (pep8-naming), B: errores comunes (flake8-bugbear).
+select = ["E", "W", "F", "I", "N", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

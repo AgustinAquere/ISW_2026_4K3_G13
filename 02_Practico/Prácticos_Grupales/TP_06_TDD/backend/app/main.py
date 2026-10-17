@@ -1,5 +1,5 @@
-
 from fastapi import FastAPI
+
 from app.routers import compras
 
 app = FastAPI(title="Sistema de compra de entradas")
