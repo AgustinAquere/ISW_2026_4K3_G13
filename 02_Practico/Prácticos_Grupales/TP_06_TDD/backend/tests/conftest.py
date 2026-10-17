@@ -1,0 +1,71 @@
+from datetime import datetime
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.adaptadores.notificador import NotificadorEnMemoria
+from app.adaptadores.pasarela_pago import PasarelaMercadoPagoSimulada
+from app.adaptadores.repositorios import (
+    RepositorioComprasEnMemoria,
+    RepositorioUsuariosEnMemoria,
+)
+from app.dependencias import obtener_servicio_compra
+from app.main import app
+from app.servicios.compra_service import ServicioCompra
+
+EMAIL_REGISTRADO = "visitante@ecoharmony.com"
+
+# Martes 10/11/2026 a las 10:00: el parque está abierto ese día.
+AHORA = datetime(2026, 11, 10, 10, 0)
+
+
+class RelojFijo:
+    """Reloj controlable para que las pruebas no dependan de la fecha real."""
+
+    def __init__(self, ahora):
+        self.ahora_actual = ahora
+
+    def ahora(self):
+        return self.ahora_actual
+
+
+@pytest.fixture
+def reloj():
+    return RelojFijo(AHORA)
+
+
+@pytest.fixture
+def usuarios():
+    return RepositorioUsuariosEnMemoria([EMAIL_REGISTRADO])
+
+
+@pytest.fixture
+def compras():
+    return RepositorioComprasEnMemoria()
+
+
+@pytest.fixture
+def notificador():
+    return NotificadorEnMemoria()
+
+
+@pytest.fixture
+def pasarela_pago():
+    return PasarelaMercadoPagoSimulada()
+
+
+@pytest.fixture
+def servicio(reloj, usuarios, compras, notificador, pasarela_pago):
+    return ServicioCompra(reloj, usuarios, compras, notificador, pasarela_pago)
+
+
+@pytest.fixture
+def client(servicio):
+    app.dependency_overrides[obtener_servicio_compra] = lambda: servicio
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def cabecera_usuario():
+    return {"X-Usuario-Email": EMAIL_REGISTRADO}
