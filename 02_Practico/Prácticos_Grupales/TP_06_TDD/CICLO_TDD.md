@@ -31,8 +31,9 @@ Un buen Red falla **por el motivo correcto**: el mensaje de la falla describe el
 | 5 | CP-23 a CP-26 | `RepositorioComprasEnMemoria`, `url_pago`, `resumen()` inexistentes | registro de la compra, pago con Mercado Pago simulado, envío del mail, resumen | — |
 | 6 | CP-01, contrato HTTP | 7 pruebas fallan: la API devolvía 200 sin datos, aceptaba `"COMUN"` y no traducía errores a 400 | `CompraResponse`, enums en el esquema, mapeo de errores a 400/401, composición en `dependencias.py` | `CompraResponse.desde_compra()`; ajustes de estilo con Ruff (`Annotated` en dependencias, `raise ... from`, líneas ≤ 79) |
 | 7 | Persistencia en SQLite | 10 pruebas nuevas en `test_repositorios_sqlite.py`; falla la importación porque `repositorios_sqlite` no existe | `RepositorioUsuariosSQLite` y `RepositorioComprasSQLite` con `sqlite3` | `dependencias.py` usa los repositorios SQLite sobre `backend/ecoharmony.db`, sin cambios en el dominio ni en el servicio |
+| 8 | CP-28 (FAQ 27 del PO) | el servicio aceptaba 6 + 5 entradas para la misma fecha (`DID NOT RAISE CompraInvalidaError`) y `RepositorioComprasSQLite` no tenía `entradas_compradas` (`AttributeError`) | `entradas_compradas(email, fecha)` en ambos repositorios y `_validar_limite_por_fecha` en `ServicioCompra` | orden de imports y largo de línea de las pruebas nuevas con Ruff |
 
-Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6 y 62 al cerrar el ciclo 7). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las del ciclo 7 están en la sección 4.
+Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7 y 68 al cerrar el ciclo 8). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5.
 
 **Tipos de Red observados.** En los ciclos 1 y 6 el Red fue una falla de comportamiento: la aserción no se cumplía (por ejemplo, `assert 200 == 401`). En los ciclos 2 a 5 el Red fue una falla de importación: la prueba usaba algo que todavía no existía (`CompraInvalidaError`, los módulos `calendario` y `precios`, el repositorio de compras), por lo que pytest no podía ejecutarla. Ambos son válidos en TDD (Kent Beck considera Red también cuando la prueba "no compila"), pero el segundo tipo no muestra cada aserción fallando. Por eso, en la sección 3 se verificó cada prueba por separado mediante mutaciones.
 
@@ -406,3 +407,23 @@ Como el Red fue de importación, se verificaron las pruebas nuevas con mutacione
 | `listar` devuelve las compras en orden inverso | ✅ Detectada (1 de 62 falla) | `test_listar_devuelve_todas_las_compras_en_orden` |
 
 La mutación de la transacción solo la detecta la prueba que cierra y reabre un archivo real: con una base `:memory:` y la misma conexión, los datos sin confirmar igual se ven. Por eso esa prueba usa `tmp_path` en lugar de `:memory:`.
+
+## 5. Ciclo 8: límite de 10 entradas por usuario y fecha (CP-28)
+
+La respuesta 27 del FAQ del PO aclaró que el límite de 10 entradas no es solo por compra: un usuario puede comprar como máximo 10 entradas para una fecha, en una o varias compras. Hasta este ciclo el sistema aceptaba, por ejemplo, 6 entradas y después otras 6 para el mismo día.
+
+1. **Red:** se escribieron 6 pruebas. Fallaron 3 por el motivo correcto: el servicio aceptaba 6 + 5 entradas para la misma fecha (`DID NOT RAISE CompraInvalidaError`) y el repositorio SQLite no sabía contar las entradas compradas (`AttributeError`). Las otras 3 (completar 10 entradas, comprar para otra fecha y que compre otro usuario) ya pasaban, y es lo esperado: verifican que la regla nueva no rechace de más.
+2. **Green:** `entradas_compradas(email, fecha)` en los dos repositorios y `_validar_limite_por_fecha` en el servicio: `68 passed`.
+3. **Refactor:** Ruff ordenó los imports y ajustó el largo de línea de las pruebas nuevas: `68 passed`. Se mantuvo el control por compra (1 a 10) porque su mensaje explica mejor el error cuando una sola compra ya supera el máximo.
+
+Las 7 mutaciones se detectaron:
+
+| Mutación (regla que se rompe) | Resultado | Prueba que la detecta |
+|---|---|---|
+| Se quita el control por fecha del servicio | ✅ Detectada (1 de 68 falla) | `test_cp28_superar_10_entradas_para_una_fecha_sumando_compras_es_rechazado` |
+| Límite `>` → `>=` (rechaza al llegar justo a 10) | ✅ Detectada (2 de 68 fallan) | `test_cp28_completar_10_entradas_para_una_fecha_es_aceptado`, `test_cp11_...[CP-11-max]` |
+| Repositorio en memoria: no filtra por fecha | ✅ Detectada (1 de 68 falla) | `test_cp28_el_limite_se_cuenta_por_fecha` |
+| Repositorio en memoria: no filtra por usuario | ✅ Detectada (1 de 68 falla) | `test_cp28_el_limite_se_cuenta_por_usuario` |
+| Repositorio SQLite: no filtra por fecha | ✅ Detectada (1 de 68 falla) | `test_entradas_compradas_suma_solo_las_del_usuario_y_la_fecha` |
+| Repositorio SQLite: no filtra por usuario | ✅ Detectada (1 de 68 falla) | `test_entradas_compradas_suma_solo_las_del_usuario_y_la_fecha` |
+| Repositorio SQLite: sin `COALESCE` (devuelve `None` sin compras) | ✅ Detectada (2 de 68 fallan) | `test_sin_compras_para_la_fecha_hay_0_entradas_compradas`, `test_servicio_registra_la_compra_en_sqlite` |
