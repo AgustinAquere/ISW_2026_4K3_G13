@@ -30,8 +30,9 @@ Un buen Red falla **por el motivo correcto**: el mensaje de la falla describe el
 | 4 | CP-18 a CP-22 | módulo `precios` y enum `TipoPase` inexistentes | `calcular_precio_entrada`, validación de edad negativa, total de la compra | `comprar()` dividido en `_validar`, `_validar_cantidad_y_edades` y `_calcular_total` |
 | 5 | CP-23 a CP-26 | `RepositorioComprasEnMemoria`, `url_pago`, `resumen()` inexistentes | registro de la compra, pago con Mercado Pago simulado, envío del mail, resumen | — |
 | 6 | CP-01, contrato HTTP | 7 pruebas fallan: la API devolvía 200 sin datos, aceptaba `"COMUN"` y no traducía errores a 400 | `CompraResponse`, enums en el esquema, mapeo de errores a 400/401, composición en `dependencias.py` | `CompraResponse.desde_compra()`; ajustes de estilo con Ruff (`Annotated` en dependencias, `raise ... from`, líneas ≤ 79) |
+| 7 | Persistencia en SQLite | 10 pruebas nuevas en `test_repositorios_sqlite.py`; falla la importación porque `repositorios_sqlite` no existe | `RepositorioUsuariosSQLite` y `RepositorioComprasSQLite` con `sqlite3` | `dependencias.py` usa los repositorios SQLite sobre `backend/ecoharmony.db`, sin cambios en el dominio ni en el servicio |
 
-Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al final).
+Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6 y 62 al cerrar el ciclo 7). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las del ciclo 7 están en la sección 4.
 
 **Tipos de Red observados.** En los ciclos 1 y 6 el Red fue una falla de comportamiento: la aserción no se cumplía (por ejemplo, `assert 200 == 401`). En los ciclos 2 a 5 el Red fue una falla de importación: la prueba usaba algo que todavía no existía (`CompraInvalidaError`, los módulos `calendario` y `precios`, el repositorio de compras), por lo que pytest no podía ejecutarla. Ambos son válidos en TDD (Kent Beck considera Red también cuando la prueba "no compila"), pero el segundo tipo no muestra cada aserción fallando. Por eso, en la sección 3 se verificó cada prueba por separado mediante mutaciones.
 
@@ -384,3 +385,24 @@ FAILED test_api_compras::test_cp10_api_rechaza_mas_de_10_entradas_con_mensaje
 FAILED test_api_compras::test_api_rechaza_fecha_con_parque_cerrado
        assert 409 == 400
 ```
+
+## 4. Ciclo 7: persistencia con SQLite
+
+Se reemplazaron los repositorios en memoria de la aplicación por repositorios SQLite, con el mismo ciclo:
+
+1. **Red:** se escribieron las 10 pruebas de `tests/unit/test_repositorios_sqlite.py` antes que el código. La batería no pudo ejecutarse porque el módulo `app.adaptadores.repositorios_sqlite` no existía (`1 error during collection`).
+2. **Green:** se implementaron `RepositorioUsuariosSQLite` y `RepositorioComprasSQLite` con `sqlite3`: `62 passed`.
+3. **Refactor:** `dependencias.py` arma el servicio con los repositorios SQLite sobre `backend/ecoharmony.db`: `62 passed`. Además, se comprobó a mano que, tras reiniciar el servidor, la siguiente compra recibe el id 2: la primera compra sigue en la base.
+
+Como el Red fue de importación, se verificaron las pruebas nuevas con mutaciones, igual que en la sección 3. Las 6 mutaciones se detectaron:
+
+| Mutación (regla que se rompe) | Resultado | Prueba que la detecta |
+|---|---|---|
+| `INSERT OR IGNORE` → `INSERT` al cargar usuarios | ✅ Detectada (1 de 62 falla) | `test_cargar_un_usuario_ya_registrado_no_lo_duplica` |
+| `esta_registrado` siempre devuelve `True` | ✅ Detectada (1 de 62 falla) | `test_usuario_no_cargado_no_esta_registrado` |
+| `guardar` no asigna el id a la compra | ✅ Detectada (5 de 62 fallan) | `test_guardar_asigna_ids_correlativos`, entre otras |
+| `guardar` no confirma la transacción (sin `with conexion`) | ✅ Detectada (1 de 62 falla) | `test_los_datos_persisten_al_reabrir_la_base` |
+| Las edades se pierden al leer la compra | ✅ Detectada (4 de 62 fallan) | `test_obtener_devuelve_la_compra_guardada`, entre otras |
+| `listar` devuelve las compras en orden inverso | ✅ Detectada (1 de 62 falla) | `test_listar_devuelve_todas_las_compras_en_orden` |
+
+La mutación de la transacción solo la detecta la prueba que cierra y reabre un archivo real: con una base `:memory:` y la misma conexión, los datos sin confirmar igual se ven. Por eso esa prueba usa `tmp_path` en lugar de `:memory:`.

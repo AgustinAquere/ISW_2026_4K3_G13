@@ -79,5 +79,8 @@ Documentar los casos de prueba definidos para el sistema de compra de entradas, 
 | Total de una compra con edades mixtas | Suma el precio de cada visitante | `test_servicio_compra::test_total_de_la_compra_*` |
 | Compra válida | Queda registrada con un id | `test_servicio_compra::test_compra_realizada_queda_registrada` |
 | Compra rechazada | No se registra ni envía mail | `test_servicio_compra::test_compra_rechazada_no_envia_mail_ni_se_registra` |
+| Usuarios en SQLite | Un usuario cargado está registrado, uno no cargado no, y cargarlo dos veces no lo duplica | `test_repositorios_sqlite::test_usuario_*`, `test_repositorios_sqlite::test_cargar_un_usuario_ya_registrado_no_lo_duplica` |
+| Compras en SQLite | Se guardan con id correlativo y se recuperan iguales (fecha, edades, pase, pago y total) | `test_repositorios_sqlite::test_guardar_*`, `test_obtener_*`, `test_listar_*`, `test_sin_compras_*` |
+| Persistencia | Los datos siguen al reabrir la base, y el servicio registra la compra en SQLite | `test_repositorios_sqlite::test_los_datos_persisten_al_reabrir_la_base`, `test_servicio_registra_la_compra_en_sqlite` |
 
 Las decisiones de diseño y los supuestos están en [DECISIONES_DE_DISENO.md](DECISIONES_DE_DISENO.md), y el registro de cada ciclo Red-Green-Refactor junto con la verificación de las pruebas, en [CICLO_TDD.md](CICLO_TDD.md).

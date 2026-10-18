@@ -9,7 +9,7 @@ El objetivo es desarrollar un sistema de compra de entradas para un parque, apli
 ## Tecnologías
 
 - **Backend:** Python 3.12+ y FastAPI.
-- **Persistencia:** repositorios en memoria (los datos se pierden al reiniciar el servidor).
+- **Persistencia:** SQLite (`sqlite3` de la biblioteca estándar). La base `backend/ecoharmony.db` se crea sola al iniciar la aplicación y está excluida del repositorio. Las pruebas usan repositorios en memoria o una base SQLite `:memory:`.
 - **Testing:** pytest, HTTPX y pytest-cov.
 - **Estilo de código:** PEP 8, verificado con Ruff (`backend/pyproject.toml`).
 
@@ -17,7 +17,7 @@ El objetivo es desarrollar un sistema de compra de entradas para un parque, apli
 
 - `backend/app/dominio/`: reglas de negocio puras (calendario del parque, precios y descuentos, modelos).
 - `backend/app/servicios/`: caso de uso de compra de entradas.
-- `backend/app/adaptadores/`: reloj, repositorios en memoria, mail y Mercado Pago simulados.
+- `backend/app/adaptadores/`: reloj, repositorios SQLite y en memoria, mail y Mercado Pago simulados.
 - `backend/app/routers/`: endpoints HTTP.
 - `backend/tests/unit/`: pruebas unitarias del dominio y del servicio.
 - `backend/tests/`: pruebas de la API.

@@ -49,13 +49,13 @@ dominio/                ← reglas de negocio puras, sin FastAPI ni E/S
   ├─ precios.py         (precio base y descuentos por edad)
   └─ errores.py         (CompraInvalidaError, UsuarioNoRegistradoError)
 
-adaptadores/            ← implementaciones de los puertos (reloj, repositorios, mail, Mercado Pago)
+adaptadores/            ← implementaciones de los puertos (reloj, repositorios SQLite y en memoria, mail, Mercado Pago)
 dependencias.py         ← composición: arma el servicio con los adaptadores reales
 ```
 
 ### Decisiones y justificación
 
-1. **Reglas de negocio en funciones puras (`calendario.py`, `precios.py`).** Se prueban sin servidor ni base de datos, las pruebas son rápidas (52 pruebas en ~0,2 s) y cada regla tiene un único lugar donde cambiarla.
+1. **Reglas de negocio en funciones puras (`calendario.py`, `precios.py`).** Se prueban sin servidor ni base de datos, las pruebas son rápidas (62 pruebas en ~0,3 s) y cada regla tiene un único lugar donde cambiarla.
 
 2. **Servicio de aplicación (`ServicioCompra`) con inyección de dependencias.** El servicio recibe por constructor el reloj, los repositorios, el notificador y la pasarela de pago. Así, en las pruebas se reemplazan por dobles (`RelojFijo`, `NotificadorEnMemoria`, `PasarelaMercadoPagoSimulada`) y en producción por los adaptadores reales. Esta decisión surgió de TDD: para escribir la prueba del mail (CP-25) hacía falta observar el envío sin mandar un mail real.
 
@@ -63,7 +63,12 @@ dependencias.py         ← composición: arma el servicio con los adaptadores r
 
 4. **Puertos para servicios externos (Mercado Pago y mail).** La integración real con Mercado Pago y con un servidor SMTP excede la User Story y no se puede probar de forma automatizada y repetible. Se definieron interfaces mínimas (`crear_pago(compra) → url` y `enviar_confirmacion(compra)`) con adaptadores simulados. Cambiar a la integración real implica escribir un adaptador nuevo sin tocar el dominio ni el servicio.
 
-5. **Repositorios en memoria.** La persistencia se abstrae detrás de `RepositorioComprasEnMemoria` / `RepositorioUsuariosEnMemoria`. Un repositorio con base de datos (por ejemplo SQLAlchemy con SQLite) puede reemplazarlos con la misma interfaz (`guardar`, `obtener`, `listar`, `esta_registrado`).
+5. **Persistencia con SQLite detrás de repositorios.** La aplicación guarda usuarios y compras en `backend/ecoharmony.db` mediante `RepositorioUsuariosSQLite` y `RepositorioComprasSQLite` (`adaptadores/repositorios_sqlite.py`). Tienen la misma interfaz que los repositorios en memoria (`guardar`, `obtener`, `listar`, `esta_registrado`), así que el cambio solo tocó `dependencias.py`: el dominio, el servicio y las pruebas existentes quedaron igual.
+   - Se usa `sqlite3` de la biblioteca estándar en lugar de un ORM como SQLAlchemy: son dos tablas y cuatro consultas, y no hace falta agregar dependencias.
+   - Las tablas se crean al construir cada repositorio (`CREATE TABLE IF NOT EXISTS`) y el usuario de demostración se carga con `INSERT OR IGNORE`, así que reiniciar el servidor no duplica datos.
+   - Las edades se guardan como una lista JSON en una columna, porque siempre se leen junto con su compra.
+   - `url_pago` no se guarda: Mercado Pago la genera después de registrar la compra, a partir de su id.
+   - Los repositorios en memoria se mantienen como dobles de prueba para que la batería del servicio siga siendo rápida. Los de SQLite tienen sus propias pruebas sobre una base `:memory:` y una sobre un archivo temporal que verifica que los datos persisten al reabrir la base.
 
 6. **Dos niveles de validación.**
    - *Estructural* (campos obligatorios, tipos, valores de `TipoPase`/`MedioPago`): lo resuelve Pydantic en el esquema y responde **422**.
@@ -102,7 +107,7 @@ Pendiente de validar con el PO: con tarjeta, ¿el mail se envía al registrar la
 - **Una razón de fallo por prueba:** los helpers `solicitud()` / `solicitud_valida()` arman una solicitud válida y cada prueba cambia solo el dato que evalúa.
 - **Trazabilidad:** el nombre o el id de cada prueba contiene el código del caso del `BACKLOG.md` (por ejemplo, `test_cp13_lunes_es_rechazado`, `[CP-08]`).
 - **Patrón Arrange-Act-Assert** y fixtures de pytest (`conftest.py`) para reutilizar la configuración.
-- **Cobertura:** 99 % de las sentencias de `app/`. Las únicas líneas sin cubrir son `datetime.now()` y la escritura en el log de los adaptadores reales.
+- **Cobertura:** 99 % de las sentencias de `app/`. Los repositorios SQLite están cubiertos al 100 %. Las únicas líneas sin cubrir son `datetime.now()` y la escritura en el log de los adaptadores reales.
 
 El registro de los ciclos Red-Green-Refactor y la verificación de las pruebas mediante mutaciones están en [CICLO_TDD.md](CICLO_TDD.md).
 
