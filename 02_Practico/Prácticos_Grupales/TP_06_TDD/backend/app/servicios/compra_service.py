@@ -26,7 +26,7 @@ class ServicioCompra:
             total=self._calcular_total(solicitud),
         )
         self._compras.guardar(compra)
-        if compra.medio_pago == MedioPago.TARJETA:
+        if compra.medio_pago == MedioPago.TARJETA and compra.total > 0:
             compra.url_pago = self._pasarela_pago.crear_pago(compra)
         self._notificador.enviar_confirmacion(compra)
         return compra

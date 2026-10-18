@@ -1,3 +1,7 @@
+import smtplib
+from email.message import EmailMessage
+
+
 class NotificadorEnMemoria:
     """Doble de prueba: registra los mails en lugar de enviarlos."""
 
@@ -20,3 +24,60 @@ class NotificadorEmailLog:
             compra.email_usuario,
             compra.resumen(),
         )
+
+
+class NotificadorSMTP:
+    """Envía el mail de confirmación por SMTP con STARTTLS."""
+
+    def __init__(
+        self,
+        host,
+        puerto,
+        usuario,
+        contrasena,
+        remitente,
+        logger,
+        smtp=smtplib.SMTP,
+    ):
+        self._host = host
+        self._puerto = puerto
+        self._usuario = usuario
+        self._contrasena = contrasena
+        self._remitente = remitente
+        self._logger = logger
+        self._smtp = smtp
+
+    def enviar_confirmacion(self, compra):
+        mensaje = EmailMessage()
+        mensaje["From"] = self._remitente
+        mensaje["To"] = compra.email_usuario
+        mensaje["Subject"] = "EcoHarmony Park: Confirmación de compra"
+        mensaje.set_content(_cuerpo_del_mail(compra))
+        try:
+            with self._smtp(self._host, self._puerto, timeout=10) as servidor:
+                servidor.starttls()
+                servidor.login(self._usuario, self._contrasena)
+                servidor.send_message(mensaje)
+        except OSError:
+            # La compra ya está registrada: un mail fallido no debe anularla.
+            self._logger.exception(
+                "No se pudo enviar el mail de confirmación a %s",
+                compra.email_usuario,
+            )
+
+
+def _cuerpo_del_mail(compra):
+    total = f"${compra.total:,}".replace(",", ".")
+    if compra.url_pago:
+        pago = f"Completá el pago con Mercado Pago: {compra.url_pago}"
+    else:
+        pago = "Pagás en la boletería del parque el día de la visita."
+    return (
+        f"¡Gracias por tu compra!\n\n"
+        f"{compra.resumen()}.\n"
+        f"Pase: {compra.tipo_pase.value}\n"
+        f"Total: {total}\n"
+        f"{pago}\n\n"
+        f"Tus entradas se verifican al ingresar al parque.\n"
+        f"EcoHarmony Park"
+    )

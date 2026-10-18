@@ -1,6 +1,7 @@
 from datetime import date
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.dominio.modelos import MedioPago, TipoPase
 
@@ -35,3 +36,16 @@ class CompraResponse(BaseModel):
             url_pago=compra.url_pago,
             mensaje=compra.resumen(),
         )
+
+
+class CotizacionRequest(BaseModel):
+    edades: list[Annotated[int, Field(ge=0)]]
+    tipo_pase: TipoPase
+
+
+class CotizacionResponse(BaseModel):
+    total: int
+
+
+class FechasDisponiblesResponse(BaseModel):
+    fechas: list[date]

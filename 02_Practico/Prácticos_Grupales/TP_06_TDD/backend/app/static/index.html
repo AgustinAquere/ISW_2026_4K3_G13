@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comprar entradas · EcoHarmony Park</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="barra">
+    <div class="marca">
+      <!-- Logo provisorio: el FAQ 17 pide diseñarlo y validarlo con el PO. -->
+      <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="24" cy="24" r="23" fill="#f2e8cf"/>
+        <path d="M24 37c-7-4-10-10-8-17 6-1 12 2 14 8 1 4-1 7-6 9z" fill="#6a994e"/>
+        <path d="M24 37c1-6 0-11-6-15" stroke="#386641" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <span>EcoHarmony Park</span>
+    </div>
+    <div id="sesion" class="sesion" hidden>
+      <span id="sesion-email"></span>
+      <button type="button" id="cerrar-sesion" class="enlace">Cambiar</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="pantalla-ingreso" class="tarjeta" hidden>
+      <h1>Ingresá para comprar</h1>
+      <p class="ayuda">Sesión simulada: ingresá el email de un usuario registrado.</p>
+      <form id="form-ingreso" novalidate>
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="email" required placeholder="tu@email.com">
+        <p class="error" id="error-ingreso" role="alert"></p>
+        <button type="submit" class="boton">Ingresar</button>
+      </form>
+    </section>
+
+    <section id="pantalla-compra" class="tarjeta" hidden>
+      <h1>Comprar entradas</h1>
+      <form id="form-compra" novalidate>
+        <fieldset>
+          <legend>1. Fecha de visita</legend>
+          <p class="ayuda">El parque abre de martes a domingo, de 8:30 a 19. Cierra el 25 de diciembre y el 1 de enero.</p>
+          <input id="fecha" type="text" class="oculto-calendario" aria-label="Fecha de visita">
+          <p class="seleccion" id="fecha-elegida">Elegí un día en el calendario.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>2. Visitantes</legend>
+          <label for="cantidad">Cantidad de entradas (máximo 10)</label>
+          <div class="contador">
+            <button type="button" class="boton-redondo" id="menos" aria-label="Quitar una entrada">−</button>
+            <input id="cantidad" type="number" min="1" max="10" value="1" inputmode="numeric">
+            <button type="button" class="boton-redondo" id="mas" aria-label="Agregar una entrada">+</button>
+          </div>
+          <div id="edades" class="edades"></div>
+          <p class="ayuda">Hasta 3 años no pagan. De 4 a 15 años y desde los 60, 50 % de descuento.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>3. Tipo de pase</legend>
+          <div class="opciones">
+            <label class="opcion">
+              <input type="radio" name="tipo_pase" value="REGULAR">
+              <span><strong>Regular</strong><small>$10.000 por persona</small></span>
+            </label>
+            <label class="opcion">
+              <input type="radio" name="tipo_pase" value="VIP">
+              <span><strong>VIP</strong><small>$20.000 por persona</small></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>4. Forma de pago</legend>
+          <div class="opciones">
+            <label class="opcion">
+              <input type="radio" name="medio_pago" value="TARJETA">
+              <span><strong>Tarjeta</strong><small>Pagás con Mercado Pago</small></span>
+            </label>
+            <label class="opcion">
+              <input type="radio" name="medio_pago" value="EFECTIVO">
+              <span><strong>Efectivo</strong><small>Pagás en boletería</small></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="total" aria-live="polite">
+          <span>Total</span>
+          <strong id="total">—</strong>
+        </div>
+
+        <p class="error" id="error-compra" role="alert"></p>
+        <button type="submit" class="boton" id="confirmar">Confirmar compra</button>
+      </form>
+    </section>
+  </main>
+
+  <dialog id="dialogo" class="dialogo" aria-labelledby="dialogo-titulo">
+    <h2 id="dialogo-titulo"></h2>
+    <p id="dialogo-mensaje"></p>
+    <p id="dialogo-detalle" class="ayuda"></p>
+    <p id="dialogo-mail" class="aviso-mail" hidden></p>
+    <div class="acciones">
+      <a id="dialogo-pagar" class="boton" hidden>Ir a pagar con Mercado Pago</a>
+      <button type="button" id="dialogo-cerrar" class="boton secundario">Listo</button>
+    </div>
+  </dialog>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/es.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
