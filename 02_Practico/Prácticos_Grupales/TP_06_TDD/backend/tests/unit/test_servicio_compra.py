@@ -2,9 +2,11 @@ from datetime import date
 
 import pytest
 
+from app.adaptadores.repositorios import RepositorioUsuariosEnMemoria
 from app.dominio.errores import CompraInvalidaError, UsuarioNoRegistradoError
 from app.dominio.modelos import MedioPago, SolicitudCompra, TipoPase
 from app.dominio.precios import PRECIO_BASE
+from app.servicios.compra_service import ServicioCompra
 from tests.conftest import EMAIL_REGISTRADO
 
 
@@ -52,6 +54,60 @@ def test_cp11_cantidad_entre_1_y_10_es_aceptada(servicio, cantidad):
 def test_cp27_cantidad_distinta_a_edades_informadas_es_rechazada(servicio):
     with pytest.raises(CompraInvalidaError, match="edad"):
         servicio.comprar(solicitud(cantidad=3, edades=[25, 30]))
+
+
+# FAQ 27 del PO: el máximo de 10 entradas es por usuario y fecha, sumando
+# todas sus compras.
+
+
+def test_cp28_superar_10_entradas_para_una_fecha_sumando_compras_es_rechazado(
+    servicio, compras
+):
+    servicio.comprar(solicitud(cantidad=6, edades=[30] * 6))
+
+    with pytest.raises(CompraInvalidaError, match="misma fecha"):
+        servicio.comprar(solicitud(cantidad=5, edades=[30] * 5))
+
+    assert len(compras.listar()) == 1
+
+
+def test_cp28_completar_10_entradas_para_una_fecha_es_aceptado(servicio):
+    servicio.comprar(solicitud(cantidad=6, edades=[30] * 6))
+
+    compra = servicio.comprar(solicitud(cantidad=4, edades=[30] * 4))
+
+    assert compra.cantidad == 4
+
+
+def test_cp28_el_limite_se_cuenta_por_fecha(servicio):
+    servicio.comprar(solicitud(cantidad=6, edades=[30] * 6))
+    martes = date(2026, 11, 17)
+
+    compra = servicio.comprar(
+        solicitud(cantidad=6, edades=[30] * 6, fecha_visita=martes)
+    )
+
+    assert compra.fecha_visita == martes
+
+
+def test_cp28_el_limite_se_cuenta_por_usuario(
+    reloj, compras, notificador, pasarela_pago
+):
+    otro_usuario = "otro@ecoharmony.com"
+    servicio = ServicioCompra(
+        reloj,
+        RepositorioUsuariosEnMemoria([EMAIL_REGISTRADO, otro_usuario]),
+        compras,
+        notificador,
+        pasarela_pago,
+    )
+    servicio.comprar(solicitud(cantidad=6, edades=[30] * 6))
+
+    compra = servicio.comprar(
+        solicitud(cantidad=6, edades=[30] * 6, email_usuario=otro_usuario)
+    )
+
+    assert compra.email_usuario == otro_usuario
 
 
 def test_compra_para_un_dia_cerrado_es_rechazada(servicio):
