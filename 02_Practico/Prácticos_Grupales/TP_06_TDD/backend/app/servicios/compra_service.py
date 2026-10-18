@@ -36,6 +36,7 @@ class ServicioCompra:
             raise UsuarioNoRegistradoError()
         self._validar_cantidad_y_edades(solicitud)
         validar_fecha_visita(solicitud.fecha_visita, self._reloj.ahora())
+        self._validar_limite_por_fecha(solicitud)
 
     @staticmethod
     def _validar_cantidad_y_edades(solicitud):
@@ -49,6 +50,16 @@ class ServicioCompra:
         if any(edad < 0 for edad in solicitud.edades):
             raise CompraInvalidaError(
                 "La edad de un visitante no puede ser negativa"
+            )
+
+    def _validar_limite_por_fecha(self, solicitud):
+        ya_compradas = self._compras.entradas_compradas(
+            solicitud.email_usuario, solicitud.fecha_visita
+        )
+        if ya_compradas + solicitud.cantidad > CANTIDAD_MAXIMA:
+            raise CompraInvalidaError(
+                f"No se pueden comprar más de {CANTIDAD_MAXIMA} entradas "
+                f"para la misma fecha (ya compraste {ya_compradas})"
             )
 
     @staticmethod

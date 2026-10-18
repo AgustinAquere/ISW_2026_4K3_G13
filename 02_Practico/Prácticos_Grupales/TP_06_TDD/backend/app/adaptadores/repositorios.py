@@ -22,3 +22,11 @@ class RepositorioComprasEnMemoria:
 
     def listar(self):
         return list(self._compras.values())
+
+    def entradas_compradas(self, email, fecha_visita):
+        return sum(
+            compra.cantidad
+            for compra in self._compras.values()
+            if compra.email_usuario == email
+            and compra.fecha_visita == fecha_visita
+        )
