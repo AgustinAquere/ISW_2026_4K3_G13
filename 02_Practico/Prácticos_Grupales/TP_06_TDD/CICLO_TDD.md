@@ -32,8 +32,12 @@ Un buen Red falla **por el motivo correcto**: el mensaje de la falla describe el
 | 6 | CP-01, contrato HTTP | 7 pruebas fallan: la API devolvía 200 sin datos, aceptaba `"COMUN"` y no traducía errores a 400 | `CompraResponse`, enums en el esquema, mapeo de errores a 400/401, composición en `dependencias.py` | `CompraResponse.desde_compra()`; ajustes de estilo con Ruff (`Annotated` en dependencias, `raise ... from`, líneas ≤ 79) |
 | 7 | Persistencia en SQLite | 10 pruebas nuevas en `test_repositorios_sqlite.py`; falla la importación porque `repositorios_sqlite` no existe | `RepositorioUsuariosSQLite` y `RepositorioComprasSQLite` con `sqlite3` | `dependencias.py` usa los repositorios SQLite sobre `backend/ecoharmony.db`, sin cambios en el dominio ni en el servicio |
 | 8 | CP-28 (FAQ 27 del PO) | el servicio aceptaba 6 + 5 entradas para la misma fecha (`DID NOT RAISE CompraInvalidaError`) y `RepositorioComprasSQLite` no tenía `entradas_compradas` (`AttributeError`) | `entradas_compradas(email, fecha)` en ambos repositorios y `_validar_limite_por_fecha` en `ServicioCompra` | orden de imports y largo de línea de las pruebas nuevas con Ruff |
+| 9 | Mercado Pago Checkout Pro | `PasarelaMercadoPago` y `PagoNoDisponibleError` inexistentes; con tarjeta y total $0 se redirigía a Mercado Pago (`assert '...SIMULADO-1' is None`) | `PasarelaMercadoPago` con `httpx`, `total > 0` en el servicio, 502 en el router | imports del router agrupados con Ruff |
+| 10 | Mail por SMTP | `NotificadorSMTP` inexistente | `NotificadorSMTP` con `smtplib`, STARTTLS y el error registrado en el log | cuerpo del mail en una función aparte (`_cuerpo_del_mail`) |
+| 11 | Datos para el front | `fechas_disponibles` y `obtener_reloj` inexistentes | `fechas_disponibles(ahora)`, `GET /fechas-disponibles`, `POST /cotizacion`, front estático en `/` | la prueba de `GET /` que esperaba JSON se reemplazó por la del front |
+| 12 | Configuración por `.env` | `crear_pasarela_pago`, `crear_notificador` y `usuarios_registrados` inexistentes | selección de adaptadores según la configuración | `dependencias.py` arma el servicio con esas funciones |
 
-Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7 y 68 al cerrar el ciclo 8). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5.
+Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8 y 93 al cerrar el ciclo 12). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, y las de los ciclos 9 a 12, en la sección 6.
 
 **Tipos de Red observados.** En los ciclos 1 y 6 el Red fue una falla de comportamiento: la aserción no se cumplía (por ejemplo, `assert 200 == 401`). En los ciclos 2 a 5 el Red fue una falla de importación: la prueba usaba algo que todavía no existía (`CompraInvalidaError`, los módulos `calendario` y `precios`, el repositorio de compras), por lo que pytest no podía ejecutarla. Ambos son válidos en TDD (Kent Beck considera Red también cuando la prueba "no compila"), pero el segundo tipo no muestra cada aserción fallando. Por eso, en la sección 3 se verificó cada prueba por separado mediante mutaciones.
 
@@ -427,3 +431,29 @@ Las 7 mutaciones se detectaron:
 | Repositorio SQLite: no filtra por fecha | ✅ Detectada (1 de 68 falla) | `test_entradas_compradas_suma_solo_las_del_usuario_y_la_fecha` |
 | Repositorio SQLite: no filtra por usuario | ✅ Detectada (1 de 68 falla) | `test_entradas_compradas_suma_solo_las_del_usuario_y_la_fecha` |
 | Repositorio SQLite: sin `COALESCE` (devuelve `None` sin compras) | ✅ Detectada (2 de 68 fallan) | `test_sin_compras_para_la_fecha_hay_0_entradas_compradas`, `test_servicio_registra_la_compra_en_sqlite` |
+
+## 6. Ciclos 9 a 12: Mercado Pago, mail, front y configuración
+
+Con el FAQ del PO, el grupo decidió integrar Mercado Pago (Checkout Pro en modo prueba) y el envío real del mail, y sumar un front web. La parte de backend siguió el ciclo Red-Green-Refactor (sección 2); las pruebas reemplazan Mercado Pago (`httpx.MockTransport`) y el servidor SMTP por dobles, así que no necesitan credenciales ni conexión.
+
+Tipos de Red observados: en los ciclos 9 a 12 fallaron las importaciones (adaptadores y funciones inexistentes), salvo la regla del total $0, que falló por comportamiento. Por eso se verificaron con mutaciones, con 93 pruebas. Las 15 se detectaron:
+
+| Mutación (regla que se rompe) | Resultado | Prueba que la detecta |
+|---|---|---|
+| Mercado Pago: no se envía el token | ✅ Detectada (1 de 93 falla) | `test_crea_la_preferencia_con_el_total_de_la_compra` |
+| Mercado Pago: siempre el checkout real | ✅ Detectada (1 de 93 falla) | `test_con_credenciales_de_prueba_redirige_al_checkout_de_prueba` |
+| Mercado Pago: no se controlan los errores HTTP | ✅ Detectada (1 de 93 falla) | `test_si_mercado_pago_rechaza_la_preferencia_se_informa_el_error` |
+| Mercado Pago: precio fijo en lugar del total | ✅ Detectada (1 de 93 falla) | `test_crea_la_preferencia_con_el_total_de_la_compra` |
+| Servicio: se cobra $0 con tarjeta | ✅ Detectada (1 de 93 falla) | `test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago` |
+| API: Mercado Pago caído responde 500 en lugar de 502 | ✅ Detectada (1 de 93 falla) | `test_api_informa_si_mercado_pago_no_esta_disponible` |
+| Mail: sin STARTTLS | ✅ Detectada (1 de 93 falla) | `test_se_conecta_con_tls_y_las_credenciales_configuradas` |
+| Mail: un error de envío hace fallar la compra | ✅ Detectada (1 de 93 falla) | `test_si_el_mail_no_se_puede_enviar_la_compra_no_falla` |
+| Mail: no incluye el link de pago | ✅ Detectada (1 de 93 falla) | `test_el_mail_informa_cantidad_fecha_total_y_link_de_pago` |
+| Fechas: ventana de 30 días en lugar de 31 | ✅ Detectada (1 de 93 falla) | `test_fechas_disponibles_van_de_hoy_a_31_dias_sin_lunes` |
+| Fechas: no se filtran los días cerrados | ✅ Detectada (4 de 93 fallan) | `test_fechas_disponibles_van_de_hoy_a_31_dias_sin_lunes`, entre otras |
+| Cotización: máximo en lugar de suma | ✅ Detectada (1 de 93 falla) | `test_api_cotiza_el_total_antes_de_elegir_la_forma_de_pago` |
+| Configuración: siempre se simula Mercado Pago | ✅ Detectada (1 de 93 falla) | `test_con_access_token_se_usa_mercado_pago` |
+| Configuración: siempre se simula el mail | ✅ Detectada (1 de 93 falla) | `test_con_servidor_smtp_se_envian_mails_reales` |
+| Configuración: no se separan los usuarios registrados | ✅ Detectada (1 de 93 falla) | `test_los_usuarios_registrados_se_pueden_configurar` |
+
+El front (JavaScript) no se construyó con TDD ni tiene pruebas automatizadas: solo muestra datos y llama a la API, que tiene todas las reglas y sus pruebas. Se probó a mano en el navegador, en escritorio y en celular: inicio de sesión simulado, calendario con lunes y fechas pasadas deshabilitados, total de $15.000 para edades 40, 8 y 2 con pase regular, compra con tarjeta (aviso del mail y botón de Mercado Pago), rechazo por superar las 10 entradas para la misma fecha y pantalla de vuelta de Mercado Pago con el pago aprobado.
