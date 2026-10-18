@@ -13,7 +13,7 @@ Criterios de aceptación cubiertos:
 | Indicar fecha, cantidad, edad de cada visitante y tipo de pase (VIP o regular) | `schemas.CompraRequest` | CP-02 a CP-06, CP-27 |
 | La fecha puede ser el día actual o futura | `dominio/calendario.py` | CP-12, CP-17 |
 | La fecha debe estar dentro de los días en que el parque abre | `dominio/calendario.py` | CP-13 a CP-16 |
-| La cantidad no puede superar las 10 entradas | `ServicioCompra` | CP-08 a CP-11 |
+| La cantidad no puede superar las 10 entradas, por compra y por usuario y fecha sumando compras (FAQ 27 del PO) | `ServicioCompra` y `entradas_compradas()` de los repositorios | CP-08 a CP-11, CP-28 |
 | Seleccionar la forma de pago: efectivo (boletería) o tarjeta | `MedioPago`, `ServicioCompra` | CP-02, CP-23 |
 | Redirigir a Mercado Pago si se paga con tarjeta | puerto `pasarela_pago` | CP-24, CP-01 |
 | Enviar un mail de confirmación | puerto `notificador` | CP-25, CP-01 |
@@ -55,7 +55,7 @@ dependencias.py         ← composición: arma el servicio con los adaptadores r
 
 ### Decisiones y justificación
 
-1. **Reglas de negocio en funciones puras (`calendario.py`, `precios.py`).** Se prueban sin servidor ni base de datos, las pruebas son rápidas (62 pruebas en ~0,3 s) y cada regla tiene un único lugar donde cambiarla.
+1. **Reglas de negocio en funciones puras (`calendario.py`, `precios.py`).** Se prueban sin servidor ni base de datos, las pruebas son rápidas (68 pruebas en ~0,3 s) y cada regla tiene un único lugar donde cambiarla.
 
 2. **Servicio de aplicación (`ServicioCompra`) con inyección de dependencias.** El servicio recibe por constructor el reloj, los repositorios, el notificador y la pasarela de pago. Así, en las pruebas se reemplazan por dobles (`RelojFijo`, `NotificadorEnMemoria`, `PasarelaMercadoPagoSimulada`) y en producción por los adaptadores reales. Esta decisión surgió de TDD: para escribir la prueba del mail (CP-25) hacía falta observar el envío sin mandar un mail real.
 
@@ -63,7 +63,7 @@ dependencias.py         ← composición: arma el servicio con los adaptadores r
 
 4. **Puertos para servicios externos (Mercado Pago y mail).** La integración real con Mercado Pago y con un servidor SMTP excede la User Story y no se puede probar de forma automatizada y repetible. Se definieron interfaces mínimas (`crear_pago(compra) → url` y `enviar_confirmacion(compra)`) con adaptadores simulados. Cambiar a la integración real implica escribir un adaptador nuevo sin tocar el dominio ni el servicio.
 
-5. **Persistencia con SQLite detrás de repositorios.** La aplicación guarda usuarios y compras en `backend/ecoharmony.db` mediante `RepositorioUsuariosSQLite` y `RepositorioComprasSQLite` (`adaptadores/repositorios_sqlite.py`). Tienen la misma interfaz que los repositorios en memoria (`guardar`, `obtener`, `listar`, `esta_registrado`), así que el cambio solo tocó `dependencias.py`: el dominio, el servicio y las pruebas existentes quedaron igual.
+5. **Persistencia con SQLite detrás de repositorios.** La aplicación guarda usuarios y compras en `backend/ecoharmony.db` mediante `RepositorioUsuariosSQLite` y `RepositorioComprasSQLite` (`adaptadores/repositorios_sqlite.py`). Tienen la misma interfaz que los repositorios en memoria (`guardar`, `obtener`, `listar`, `entradas_compradas`, `esta_registrado`), así que el cambio solo tocó `dependencias.py`: el dominio, el servicio y las pruebas existentes quedaron igual.
    - Se usa `sqlite3` de la biblioteca estándar en lugar de un ORM como SQLAlchemy: son dos tablas y cuatro consultas, y no hace falta agregar dependencias.
    - Las tablas se crean al construir cada repositorio (`CREATE TABLE IF NOT EXISTS`) y el usuario de demostración se carga con `INSERT OR IGNORE`, así que reiniciar el servidor no duplica datos.
    - Las edades se guardan como una lista JSON en una columna, porque siempre se leen junto con su compra.
@@ -96,6 +96,7 @@ Lo que el enunciado o la User Story no definen se resolvió con supuestos explí
 | Anticipación máxima | 31 días (el día 31 se acepta, el 32 no) | `dominio/calendario.py` |
 | Hora límite para comprar para el día actual | 17:30 inclusive (17:31 se rechaza) | `dominio/calendario.py` |
 | Se debe informar una edad por cada entrada | `len(edades) == cantidad` (CP-27, agregado) | `ServicioCompra` |
+| Límite de 10 entradas por usuario y fecha, sumando compras | Confirmado por el PO (FAQ 27). Se controlan las compras registradas, sin importar el medio de pago | `ServicioCompra`, `entradas_compradas()` |
 | Momento del mail de confirmación | Al registrar la compra, en ambos medios de pago | `ServicioCompra` |
 
 Pendiente de validar con el PO: con tarjeta, ¿el mail se envía al registrar la compra o cuando Mercado Pago confirma el pago? Para la segunda opción haría falta un endpoint de notificación (webhook) de Mercado Pago, fuera del alcance de esta User Story.

@@ -34,6 +34,7 @@ Documentar los casos de prueba definidos para el sistema de compra de entradas, 
 | CP-10 | Comprar más de 10 entradas | La compra es rechazada | Refactorizado | `test_servicio_compra::test_cantidad_fuera_de_rango_es_rechazada[CP-10]`, `test_api_compras::test_cp10_*` |
 | CP-11 | Comprar una cantidad entre 1 y 10 entradas, inclusive | La cantidad es aceptada | Refactorizado | `test_servicio_compra::test_cp11_cantidad_entre_1_y_10_es_aceptada` |
 | CP-27 | Indicar una cantidad de edades distinta a la cantidad de entradas | La compra es rechazada | Refactorizado | `test_servicio_compra::test_cp27_cantidad_distinta_a_edades_informadas_es_rechazada` |
+| CP-28 | Superar las 10 entradas para una misma fecha sumando varias compras del mismo usuario (FAQ 27 del PO) | La compra es rechazada; completar 10, comprar para otra fecha o que compre otro usuario se acepta | Refactorizado | `test_servicio_compra::test_cp28_*`, `test_repositorios_sqlite::test_entradas_compradas_*`, `test_repositorios_sqlite::test_sin_compras_para_la_fecha_*` |
 
 ### 3. Validación de la fecha de visita
 
