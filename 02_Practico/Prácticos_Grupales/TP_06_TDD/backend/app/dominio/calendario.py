@@ -31,3 +31,20 @@ def validar_fecha_visita(fecha_visita, ahora):
         )
     if not esta_abierto(fecha_visita):
         raise CompraInvalidaError("El parque está cerrado en la fecha elegida")
+
+
+def fechas_disponibles(ahora):
+    hoy = ahora.date()
+    candidatas = (
+        hoy + timedelta(days=dias)
+        for dias in range(DIAS_MAXIMOS_DE_ANTICIPACION + 1)
+    )
+    return [fecha for fecha in candidatas if _es_valida(fecha, ahora)]
+
+
+def _es_valida(fecha_visita, ahora):
+    try:
+        validar_fecha_visita(fecha_visita, ahora)
+    except CompraInvalidaError:
+        return False
+    return True

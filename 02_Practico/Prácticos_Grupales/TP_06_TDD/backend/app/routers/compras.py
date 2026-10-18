@@ -2,10 +2,23 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
-from app.dependencias import obtener_servicio_compra
-from app.dominio.errores import CompraInvalidaError, UsuarioNoRegistradoError
+from app.adaptadores.reloj import RelojSistema
+from app.dependencias import obtener_reloj, obtener_servicio_compra
+from app.dominio.calendario import fechas_disponibles
+from app.dominio.errores import (
+    CompraInvalidaError,
+    PagoNoDisponibleError,
+    UsuarioNoRegistradoError,
+)
 from app.dominio.modelos import SolicitudCompra
-from app.schemas import CompraRequest, CompraResponse
+from app.dominio.precios import calcular_precio_entrada
+from app.schemas import (
+    CompraRequest,
+    CompraResponse,
+    CotizacionRequest,
+    CotizacionResponse,
+    FechasDisponiblesResponse,
+)
 from app.servicios.compra_service import ServicioCompra
 
 router = APIRouter()
@@ -36,4 +49,26 @@ def comprar_entradas(
         ) from error
     except CompraInvalidaError as error:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
+    except PagoNoDisponibleError as error:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "No se pudo iniciar el pago con Mercado Pago. "
+            "Intentá de nuevo más tarde.",
+        ) from error
     return CompraResponse.desde_compra(resultado)
+
+
+@router.get("/fechas-disponibles", response_model=FechasDisponiblesResponse)
+def consultar_fechas_disponibles(
+    reloj: Annotated[RelojSistema, Depends(obtener_reloj)],
+):
+    return {"fechas": fechas_disponibles(reloj.ahora())}
+
+
+@router.post("/cotizacion", response_model=CotizacionResponse)
+def cotizar(cotizacion: CotizacionRequest):
+    total = sum(
+        calcular_precio_entrada(edad, cotizacion.tipo_pase)
+        for edad in cotizacion.edades
+    )
+    return {"total": total}

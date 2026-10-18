@@ -1,10 +1,16 @@
 import logging
+import os
 import sqlite3
 from functools import lru_cache
 from pathlib import Path
 
-from app.adaptadores.notificador import NotificadorEmailLog
-from app.adaptadores.pasarela_pago import PasarelaMercadoPagoSimulada
+from dotenv import load_dotenv
+
+from app.adaptadores.notificador import NotificadorEmailLog, NotificadorSMTP
+from app.adaptadores.pasarela_pago import (
+    PasarelaMercadoPago,
+    PasarelaMercadoPagoSimulada,
+)
 from app.adaptadores.reloj import RelojSistema
 from app.adaptadores.repositorios_sqlite import (
     RepositorioComprasSQLite,
@@ -12,10 +18,51 @@ from app.adaptadores.repositorios_sqlite import (
 )
 from app.servicios.compra_service import ServicioCompra
 
-RUTA_BASE_DE_DATOS = Path(__file__).resolve().parent.parent / "ecoharmony.db"
+RUTA_BACKEND = Path(__file__).resolve().parent.parent
+RUTA_BASE_DE_DATOS = RUTA_BACKEND / "ecoharmony.db"
+
+# Credenciales de Mercado Pago y SMTP: ver .env.example.
+load_dotenv(RUTA_BACKEND / ".env")
 
 # Usuario de demostración: el registro pertenece a otra User Story.
-USUARIOS_REGISTRADOS = ["visitante@ecoharmony.com"]
+USUARIO_DE_DEMOSTRACION = "visitante@ecoharmony.com"
+URL_PUBLICA_POR_DEFECTO = "http://127.0.0.1:8000/"
+
+logger = logging.getLogger("uvicorn.error")
+
+
+def usuarios_registrados(configuracion):
+    emails = configuracion.get("USUARIOS_REGISTRADOS", USUARIO_DE_DEMOSTRACION)
+    return [email.strip() for email in emails.split(",") if email.strip()]
+
+
+def crear_pasarela_pago(configuracion):
+    access_token = configuracion.get("MP_ACCESS_TOKEN")
+    if not access_token:
+        logger.warning("Sin MP_ACCESS_TOKEN: se simula Mercado Pago")
+        return PasarelaMercadoPagoSimulada()
+    url_retorno = configuracion.get("URL_PUBLICA", URL_PUBLICA_POR_DEFECTO)
+    return PasarelaMercadoPago(access_token, url_retorno)
+
+
+def crear_notificador(configuracion):
+    host = configuracion.get("SMTP_HOST")
+    if not host:
+        logger.warning("Sin SMTP_HOST: los mails se escriben en el log")
+        return NotificadorEmailLog(logger)
+    usuario = configuracion.get("SMTP_USUARIO", "")
+    return NotificadorSMTP(
+        host=host,
+        puerto=int(configuracion.get("SMTP_PUERTO", "587")),
+        usuario=usuario,
+        contrasena=configuracion.get("SMTP_CONTRASENA", ""),
+        remitente=configuracion.get("SMTP_REMITENTE", usuario),
+        logger=logger,
+    )
+
+
+def obtener_reloj():
+    return RelojSistema()
 
 
 @lru_cache
@@ -25,8 +72,10 @@ def obtener_servicio_compra():
     conexion = sqlite3.connect(RUTA_BASE_DE_DATOS, check_same_thread=False)
     return ServicioCompra(
         reloj=RelojSistema(),
-        usuarios=RepositorioUsuariosSQLite(conexion, USUARIOS_REGISTRADOS),
+        usuarios=RepositorioUsuariosSQLite(
+            conexion, usuarios_registrados(os.environ)
+        ),
         compras=RepositorioComprasSQLite(conexion),
-        notificador=NotificadorEmailLog(logging.getLogger("uvicorn.error")),
-        pasarela_pago=PasarelaMercadoPagoSimulada(),
+        notificador=crear_notificador(os.environ),
+        pasarela_pago=crear_pasarela_pago(os.environ),
     )
