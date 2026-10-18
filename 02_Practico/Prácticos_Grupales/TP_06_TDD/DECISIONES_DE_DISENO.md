@@ -15,10 +15,10 @@ Criterios de aceptación cubiertos:
 | La fecha debe estar dentro de los días en que el parque abre | `dominio/calendario.py` | CP-13 a CP-16 |
 | La cantidad no puede superar las 10 entradas, por compra y por usuario y fecha sumando compras (FAQ 27 del PO) | `ServicioCompra` y `entradas_compradas()` de los repositorios | CP-08 a CP-11, CP-28 |
 | Seleccionar la forma de pago: efectivo (boletería) o tarjeta | `MedioPago`, `ServicioCompra` | CP-02, CP-23 |
-| Redirigir a Mercado Pago si se paga con tarjeta | puerto `pasarela_pago` | CP-24, CP-01 |
-| Enviar un mail de confirmación | puerto `notificador` | CP-25, CP-01 |
+| Redirigir a Mercado Pago si se paga con tarjeta | puerto `pasarela_pago`, `PasarelaMercadoPago` (Checkout Pro) y botón del front | CP-24, CP-01, pruebas de `test_pasarela_mercado_pago.py` |
+| Enviar un mail de confirmación | puerto `notificador`, `NotificadorSMTP` y aviso en el front (FAQ 5) | CP-25, CP-01, pruebas de `test_notificador_smtp.py` |
 | Informar la cantidad de entradas compradas y la fecha | `Compra.resumen()` | CP-26 |
-| Solo usuarios registrados pueden comprar | `ServicioCompra` y cabecera `X-Usuario-Email` | CP-07 |
+| Solo usuarios registrados pueden comprar | `ServicioCompra` y cabecera `X-Usuario-Email` (sesión simulada, FAQ 19) | CP-07 |
 
 Las cuatro pruebas de usuario de la tarjeta están automatizadas: CP-01 (pasa), CP-02 (falla sin forma de pago), CP-13/14/15 (fallan con el parque cerrado) y CP-10 (falla con más de 10 entradas).
 
@@ -47,21 +47,22 @@ dominio/                ← reglas de negocio puras, sin FastAPI ni E/S
   ├─ modelos.py         (SolicitudCompra, Compra, TipoPase, MedioPago)
   ├─ calendario.py      (días de apertura y ventana de compra)
   ├─ precios.py         (precio base y descuentos por edad)
-  └─ errores.py         (CompraInvalidaError, UsuarioNoRegistradoError)
+  └─ errores.py         (CompraInvalidaError, UsuarioNoRegistradoError, PagoNoDisponibleError)
 
-adaptadores/            ← implementaciones de los puertos (reloj, repositorios SQLite y en memoria, mail, Mercado Pago)
-dependencias.py         ← composición: arma el servicio con los adaptadores reales
+adaptadores/            ← implementaciones de los puertos (reloj, repositorios SQLite y en memoria, mail SMTP, Mercado Pago)
+dependencias.py         ← composición: elige los adaptadores según la configuración (.env)
+static/                 ← front: index.html, styles.css y app.js, servidos por FastAPI en /
 ```
 
 ### Decisiones y justificación
 
-1. **Reglas de negocio en funciones puras (`calendario.py`, `precios.py`).** Se prueban sin servidor ni base de datos, las pruebas son rápidas (68 pruebas en ~0,3 s) y cada regla tiene un único lugar donde cambiarla.
+1. **Reglas de negocio en funciones puras (`calendario.py`, `precios.py`).** Se prueban sin servidor ni base de datos, las pruebas son rápidas (93 pruebas en menos de 1 s) y cada regla tiene un único lugar donde cambiarla.
 
 2. **Servicio de aplicación (`ServicioCompra`) con inyección de dependencias.** El servicio recibe por constructor el reloj, los repositorios, el notificador y la pasarela de pago. Así, en las pruebas se reemplazan por dobles (`RelojFijo`, `NotificadorEnMemoria`, `PasarelaMercadoPagoSimulada`) y en producción por los adaptadores reales. Esta decisión surgió de TDD: para escribir la prueba del mail (CP-25) hacía falta observar el envío sin mandar un mail real.
 
 3. **Reloj inyectable.** Las reglas de fecha (día actual, 31 días, 17:30, feriados) dependen de "ahora". Con `datetime.now()` directo, las pruebas fallarían según el día en que se ejecuten. Con un reloj inyectado, cada prueba fija su propia fecha y hora; por ejemplo, para el 1 de enero y el 25 de diciembre se usa como "ahora" el 20/12/2026, así esas pruebas fallan por el feriado y no por superar los 31 días.
 
-4. **Puertos para servicios externos (Mercado Pago y mail).** La integración real con Mercado Pago y con un servidor SMTP excede la User Story y no se puede probar de forma automatizada y repetible. Se definieron interfaces mínimas (`crear_pago(compra) → url` y `enviar_confirmacion(compra)`) con adaptadores simulados. Cambiar a la integración real implica escribir un adaptador nuevo sin tocar el dominio ni el servicio.
+4. **Puertos para servicios externos (Mercado Pago y mail).** Se definieron interfaces mínimas (`crear_pago(compra) → url` y `enviar_confirmacion(compra)`). Al principio solo existían adaptadores simulados; la integración real se agregó después escribiendo adaptadores nuevos, sin tocar el dominio ni el servicio (ver decisiones 10 y 11).
 
 5. **Persistencia con SQLite detrás de repositorios.** La aplicación guarda usuarios y compras en `backend/ecoharmony.db` mediante `RepositorioUsuariosSQLite` y `RepositorioComprasSQLite` (`adaptadores/repositorios_sqlite.py`). Tienen la misma interfaz que los repositorios en memoria (`guardar`, `obtener`, `listar`, `entradas_compradas`, `esta_registrado`), así que el cambio solo tocó `dependencias.py`: el dominio, el servicio y las pruebas existentes quedaron igual.
    - Se usa `sqlite3` de la biblioteca estándar en lugar de un ORM como SQLAlchemy: son dos tablas y cuatro consultas, y no hace falta agregar dependencias.
@@ -83,6 +84,22 @@ dependencias.py         ← composición: arma el servicio con los adaptadores r
 
 9. **El mail se envía y la compra se registra solo si la compra es válida.** Primero se valida todo y después se producen los efectos (guardar, crear pago, enviar mail). Hay una prueba específica que verifica que una compra rechazada no deja registros ni envía mails.
 
+10. **Mercado Pago Checkout Pro (`PasarelaMercadoPago`).** Crea una *preferencia* con un ítem por el total de la compra, `external_reference` con el id de la compra y `back_urls` que vuelven al front; devuelve el link de pago. Se usa la API REST con `httpx`, que ya estaba en el proyecto, en lugar del SDK de Mercado Pago, para no agregar una dependencia por una sola llamada.
+    - Las pruebas reemplazan la red con `httpx.MockTransport`: verifican lo que se envía (token, total, moneda, referencia y URLs de retorno) sin credenciales ni conexión.
+    - Con credenciales de prueba (`TEST-...`) devuelve el checkout de prueba (`sandbox_init_point`); con credenciales productivas, el real (`init_point`).
+    - Si Mercado Pago rechaza la solicitud o no responde, se lanza `PagoNoDisponibleError` y la API responde **502** con un mensaje claro.
+    - Una compra con tarjeta de $0 (todos los visitantes de hasta 3 años) no se envía a Mercado Pago, que no acepta cobros de $0.
+
+11. **Mail por SMTP (`NotificadorSMTP`).** Usa `smtplib` y `email.message` de la biblioteca estándar, con STARTTLS. El mail informa la cantidad de entradas, la fecha, el pase, el total y, si se paga con tarjeta, el link de Mercado Pago. Las pruebas reemplazan el servidor SMTP por uno falso. Si el envío falla, el error queda en el log y **la compra no falla**: ya está registrada, y un error en ese momento haría que el visitante crea que no compró y vuelva a intentarlo.
+
+12. **Configuración por variables de entorno (`.env`).** `dependencias.py` lee `backend/.env` (con `python-dotenv`) y elige cada adaptador: si hay `MP_ACCESS_TOKEN` usa Mercado Pago real y si hay `SMTP_HOST`, el mail real; si no, las versiones simuladas. Así el proyecto funciona sin credenciales (por ejemplo, para corregirlo) y las credenciales nunca se suben al repositorio. Las funciones de selección reciben la configuración como diccionario, para probarlas sin depender del `.env` de cada integrante.
+
+13. **Front sin framework, servido por FastAPI.** El FAQ del PO pide una web responsive (24), con su paleta y la fuente Lato (3), un calendario con los días cerrados deshabilitados (2), la redirección a Mercado Pago (4) y un aviso del mail enviado (5). Se resolvió con HTML, CSS y JavaScript sin herramientas de build, en el mismo servidor que la API.
+    - Para no repetir reglas de negocio en JavaScript, el front las consulta al backend: `GET /fechas-disponibles` (fechas habilitadas en el calendario, calculadas con las mismas reglas que validan la compra) y `POST /cotizacion` (total antes de elegir la forma de pago, como describe el dominio).
+    - El backend sigue validando todo al comprar: el front solo ayuda a no equivocarse.
+    - Al volver de Mercado Pago, el front lee el estado del pago (`collection_status`) y lo informa.
+    - El logo es provisorio: el FAQ 17 pide diseñarlo y validarlo con el PO.
+
 ## 4. Supuestos
 
 Lo que el enunciado o la User Story no definen se resolvió con supuestos explícitos, ubicados en constantes fáciles de modificar:
@@ -97,18 +114,19 @@ Lo que el enunciado o la User Story no definen se resolvió con supuestos explí
 | Hora límite para comprar para el día actual | 17:30 inclusive (17:31 se rechaza) | `dominio/calendario.py` |
 | Se debe informar una edad por cada entrada | `len(edades) == cantidad` (CP-27, agregado) | `ServicioCompra` |
 | Límite de 10 entradas por usuario y fecha, sumando compras | Confirmado por el PO (FAQ 27). Se controlan las compras registradas, sin importar el medio de pago | `ServicioCompra`, `entradas_compradas()` |
-| Momento del mail de confirmación | Al registrar la compra, en ambos medios de pago | `ServicioCompra` |
+| Momento del mail de confirmación | Al registrar la compra, en ambos medios de pago; con tarjeta incluye el link de pago | `ServicioCompra`, `NotificadorSMTP` |
+| Compra con tarjeta de $0 | No se redirige a Mercado Pago | `ServicioCompra` |
 
-Pendiente de validar con el PO: con tarjeta, ¿el mail se envía al registrar la compra o cuando Mercado Pago confirma el pago? Para la segunda opción haría falta un endpoint de notificación (webhook) de Mercado Pago, fuera del alcance de esta User Story.
+Pendiente de validar con el PO: con tarjeta, ¿el mail se envía al registrar la compra o cuando Mercado Pago confirma el pago? Para la segunda opción haría falta un endpoint de notificación (webhook) de Mercado Pago, fuera del alcance de esta User Story. Por el mismo motivo, hoy el estado del pago solo se muestra en el front al volver de Mercado Pago: el backend no lo registra, y si Mercado Pago falla al crear el pago, la compra queda registrada sin link de pago.
 
 ## 5. Diseño de las pruebas
 
-- **Pirámide de pruebas:** la mayoría son **unitarias** del dominio y del servicio (`tests/unit/`); menos pruebas **de API** (`tests/test_api_compras.py`) verifican el contrato HTTP (códigos, JSON, cabeceras) y el flujo completo de CP-01.
+- **Pirámide de pruebas:** la mayoría son **unitarias** del dominio, del servicio y de los adaptadores (`tests/unit/`); menos pruebas **de API** (`tests/test_api_compras.py`, `tests/test_api_front.py`) verifican el contrato HTTP (códigos, JSON, cabeceras), el flujo completo de CP-01 y que el front se sirva. El front (JavaScript) no tiene pruebas automatizadas: se probó a mano en el navegador, en escritorio y en celular.
 - **Clases de equivalencia y valores límite:** cada regla se prueba en sus bordes, por ejemplo cantidad 0, -1, 1, 10 y 11; edades 0, 3, 4, 15, 16, 59 y 60; fechas a 31 y 32 días; horas 17:30 y 17:31.
 - **Una razón de fallo por prueba:** los helpers `solicitud()` / `solicitud_valida()` arman una solicitud válida y cada prueba cambia solo el dato que evalúa.
 - **Trazabilidad:** el nombre o el id de cada prueba contiene el código del caso del `BACKLOG.md` (por ejemplo, `test_cp13_lunes_es_rechazado`, `[CP-08]`).
 - **Patrón Arrange-Act-Assert** y fixtures de pytest (`conftest.py`) para reutilizar la configuración.
-- **Cobertura:** 99 % de las sentencias de `app/`. Los repositorios SQLite están cubiertos al 100 %. Las únicas líneas sin cubrir son `datetime.now()` y la escritura en el log de los adaptadores reales.
+- **Cobertura:** 99 % de las sentencias de `app/`. Los repositorios SQLite están cubiertos al 100 %. Las únicas líneas sin cubrir usan el reloj real (`datetime.now()` y `obtener_reloj()`, que las pruebas reemplazan por un reloj fijo) y la escritura en el log del mail simulado.
 
 El registro de los ciclos Red-Green-Refactor y la verificación de las pruebas mediante mutaciones están en [CICLO_TDD.md](CICLO_TDD.md).
 

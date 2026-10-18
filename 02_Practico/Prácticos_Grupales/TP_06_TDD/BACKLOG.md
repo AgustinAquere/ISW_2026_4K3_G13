@@ -83,5 +83,13 @@ Documentar los casos de prueba definidos para el sistema de compra de entradas, 
 | Usuarios en SQLite | Un usuario cargado está registrado, uno no cargado no, y cargarlo dos veces no lo duplica | `test_repositorios_sqlite::test_usuario_*`, `test_repositorios_sqlite::test_cargar_un_usuario_ya_registrado_no_lo_duplica` |
 | Compras en SQLite | Se guardan con id correlativo y se recuperan iguales (fecha, edades, pase, pago y total) | `test_repositorios_sqlite::test_guardar_*`, `test_obtener_*`, `test_listar_*`, `test_sin_compras_*` |
 | Persistencia | Los datos siguen al reabrir la base, y el servicio registra la compra en SQLite | `test_repositorios_sqlite::test_los_datos_persisten_al_reabrir_la_base`, `test_servicio_registra_la_compra_en_sqlite` |
+| Mercado Pago Checkout Pro | Se crea la preferencia con el total y se redirige al checkout (de prueba con credenciales `TEST-`) | `test_pasarela_mercado_pago::*` |
+| Mercado Pago no disponible | La API responde 502 con un mensaje claro | `test_pasarela_mercado_pago::test_si_mercado_pago_*`, `test_api_compras::test_api_informa_si_mercado_pago_no_esta_disponible` |
+| Compra con tarjeta de $0 | No se redirige a Mercado Pago | `test_servicio_compra::test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago` |
+| Mail por SMTP | Llega al usuario con cantidad, fecha, total y link de pago; si el envío falla, la compra no falla | `test_notificador_smtp::*` |
+| Fechas del calendario | Solo se ofrecen fechas abiertas, de hoy a 31 días, y hoy solo hasta las 17:30 | `test_calendario::test_fechas_disponibles_*`, `test_despues_de_las_17_30_*`, `test_api_front::test_api_informa_las_fechas_disponibles` |
+| Total antes de pagar | Se cotiza con los mismos precios y descuentos que la compra | `test_api_front::test_api_cotiza_*`, `test_api_front::test_api_no_cotiza_edades_negativas` |
+| Front | Se sirve en `/` | `test_api_front::test_la_pagina_de_compra_se_sirve_en_la_raiz` |
+| Configuración | Con credenciales en `.env` se usan Mercado Pago y SMTP reales; sin ellas, los simulados | `test_dependencias::*` |
 
 Las decisiones de diseño y los supuestos están en [DECISIONES_DE_DISENO.md](DECISIONES_DE_DISENO.md), y el registro de cada ciclo Red-Green-Refactor junto con la verificación de las pruebas, en [CICLO_TDD.md](CICLO_TDD.md).
