@@ -155,6 +155,19 @@ def test_cp24_pago_con_tarjeta_redirige_a_mercado_pago(
     assert pasarela_pago.pagos_creados == [compra]
 
 
+def test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago(
+    servicio, pasarela_pago
+):
+    # Mercado Pago no acepta cobros de $0: los menores de 4 años no pagan.
+    compra = servicio.comprar(
+        solicitud(edades=[1, 3], medio_pago=MedioPago.TARJETA)
+    )
+
+    assert compra.total == 0
+    assert compra.url_pago is None
+    assert pasarela_pago.pagos_creados == []
+
+
 # 6. Confirmación de la compra
 
 
