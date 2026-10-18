@@ -9,7 +9,7 @@ from app.adaptadores.repositorios import (
     RepositorioComprasEnMemoria,
     RepositorioUsuariosEnMemoria,
 )
-from app.dependencias import obtener_servicio_compra
+from app.dependencias import obtener_reloj, obtener_servicio_compra
 from app.main import app
 from app.servicios.compra_service import ServicioCompra
 
@@ -60,8 +60,9 @@ def servicio(reloj, usuarios, compras, notificador, pasarela_pago):
 
 
 @pytest.fixture
-def client(servicio):
+def client(servicio, reloj):
     app.dependency_overrides[obtener_servicio_compra] = lambda: servicio
+    app.dependency_overrides[obtener_reloj] = lambda: reloj
     yield TestClient(app)
     app.dependency_overrides.clear()
 

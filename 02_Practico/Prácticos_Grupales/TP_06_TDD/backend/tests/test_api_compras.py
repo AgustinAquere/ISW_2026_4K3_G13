@@ -1,5 +1,7 @@
 import pytest
 
+from app.dominio.errores import PagoNoDisponibleError
+
 
 def solicitud_valida(**cambios):
     """Arma un cuerpo de compra válido.
@@ -155,3 +157,21 @@ def test_cp26_api_informa_cantidad_y_fecha_al_finalizar(
         respuesta.json()["mensaje"]
         == "Compraste 2 entradas para el 15/11/2026"
     )
+
+
+def test_api_informa_si_mercado_pago_no_esta_disponible(
+    client, cabecera_usuario, pasarela_pago, monkeypatch
+):
+    def mercado_pago_caido(compra):
+        raise PagoNoDisponibleError()
+
+    monkeypatch.setattr(pasarela_pago, "crear_pago", mercado_pago_caido)
+
+    respuesta = client.post(
+        "/compras",
+        json=solicitud_valida(medio_pago="TARJETA"),
+        headers=cabecera_usuario,
+    )
+
+    assert respuesta.status_code == 502
+    assert "Mercado Pago" in respuesta.json()["detail"]

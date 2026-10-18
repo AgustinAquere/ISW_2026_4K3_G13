@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 import pytest
 
-from app.dominio.calendario import validar_fecha_visita
+from app.dominio.calendario import fechas_disponibles, validar_fecha_visita
 from app.dominio.errores import CompraInvalidaError
 
 # Martes 10/11/2026 a las 10:00.
@@ -60,3 +60,31 @@ def test_cp17_comprar_para_hoy_a_las_17_30_es_aceptado():
 
 def test_fecha_futura_con_parque_abierto_es_aceptada():
     validar_fecha_visita(date(2026, 11, 15), AHORA)
+
+
+# Fechas que el calendario del front ofrece (FAQ 2: los días cerrados no se
+# pueden elegir).
+
+
+def test_fechas_disponibles_van_de_hoy_a_31_dias_sin_lunes():
+    fechas = fechas_disponibles(AHORA)
+
+    assert fechas[0] == date(2026, 11, 10)
+    assert fechas[-1] == date(2026, 12, 11)
+    assert all(fecha.weekday() != 0 for fecha in fechas)
+    # 32 días de ventana menos 4 lunes.
+    assert len(fechas) == 28
+
+
+def test_despues_de_las_17_30_hoy_no_esta_disponible():
+    fechas = fechas_disponibles(datetime(2026, 11, 10, 17, 31))
+
+    assert fechas[0] == date(2026, 11, 11)
+
+
+def test_fechas_disponibles_excluyen_los_feriados():
+    fechas = fechas_disponibles(AHORA_FIN_DE_ANIO)
+
+    assert date(2026, 12, 25) not in fechas
+    assert date(2027, 1, 1) not in fechas
+    assert date(2026, 12, 26) in fechas
