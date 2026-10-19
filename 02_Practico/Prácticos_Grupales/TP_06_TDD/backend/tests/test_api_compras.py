@@ -1,9 +1,10 @@
+from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
 from app.dominio.errores import PagoNoDisponibleError
-from tests.fechas import FECHA_VISITA, LUNES_PROXIMO, dd_mm_aaaa
+from tests.fechas import FECHA_VISITA, HOY, LUNES_PROXIMO, UN_DIA, dd_mm_aaaa
 
 
 def solicitud_valida(**cambios):
@@ -169,6 +170,30 @@ def test_api_rechaza_fecha_con_parque_cerrado(client, cabecera_usuario):
 
     assert respuesta.status_code == 400
     assert "cerrado" in respuesta.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "cambios, mensaje",
+    [
+        ({"fecha_visita": (HOY - UN_DIA).isoformat()}, "pasada"),
+        ({"fecha_visita": (HOY + timedelta(days=32)).isoformat()}, "31 días"),
+        ({"cantidad": 0, "edades": []}, "cantidad"),
+        ({"cantidad": 3, "edades": [25, 30]}, "edad"),
+        ({"edades": [25, -1]}, "edad"),
+    ],
+    ids=["CP-12", "CP-16", "CP-08", "CP-27", "CP-18"],
+)
+def test_api_rechaza_la_compra_con_un_mensaje_claro(
+    client, cabecera_usuario, cambios, mensaje
+):
+    respuesta = client.post(
+        "/compras",
+        json=solicitud_valida(**cambios),
+        headers=cabecera_usuario,
+    )
+
+    assert respuesta.status_code == 400
+    assert mensaje in respuesta.json()["detail"]
 
 
 # 5 y 6. Pago y confirmación
