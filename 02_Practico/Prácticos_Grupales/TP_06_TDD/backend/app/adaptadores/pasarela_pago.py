@@ -75,11 +75,37 @@ class PasarelaMercadoPago:
             respuesta.raise_for_status()
         except httpx.HTTPError as error:
             raise PagoNoDisponibleError() from error
-        datos = respuesta.json()
-        referencia = datos.get("external_reference")
-        return PagoInformado(
-            id_pago=id_pago,
-            aprobado=datos["status"] == "approved",
-            id_compra=int(referencia) if referencia else None,
-            monto=round(datos["transaction_amount"]),
-        )
+        return _pago_informado(respuesta.json())
+
+    def buscar_pago(self, id_compra):
+        # Si el checkout se abrió en otra pestaña, el sitio no recibe el id
+        # del pago: lo busca por el número de compra (external_reference).
+        try:
+            respuesta = self._cliente.get(
+                f"{self._url_api}/v1/payments/search",
+                params={
+                    "external_reference": str(id_compra),
+                    "sort": "date_created",
+                    "criteria": "desc",
+                },
+                headers=self._cabeceras(),
+            )
+            respuesta.raise_for_status()
+        except httpx.HTTPError as error:
+            raise PagoNoDisponibleError() from error
+        pagos = respuesta.json()["results"]
+        if not pagos:
+            return None
+        aprobados = [pago for pago in pagos if pago["status"] == "approved"]
+        return _pago_informado((aprobados or pagos)[0])
+
+
+def _pago_informado(datos):
+    referencia = datos.get("external_reference")
+    return PagoInformado(
+        id_pago=str(datos["id"]),
+        aprobado=datos["status"] == "approved",
+        id_compra=int(referencia) if referencia else None,
+        monto=round(datos["transaction_amount"]),
+        rechazado=datos["status"] == "rejected",
+    )
