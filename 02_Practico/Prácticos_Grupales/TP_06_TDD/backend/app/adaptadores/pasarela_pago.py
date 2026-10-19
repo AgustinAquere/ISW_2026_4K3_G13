@@ -5,19 +5,28 @@ import httpx
 from app.dominio.errores import PagoNoDisponibleError
 from app.dominio.modelos import PagoInformado
 
-URL_PREFERENCIAS_MERCADO_PAGO = (
-    "https://api.mercadopago.com/checkout/preferences"
-)
-URL_PAGOS_MERCADO_PAGO = "https://api.mercadopago.com/v1/payments"
+URL_API_MERCADO_PAGO = "https://api.mercadopago.com"
+URL_PREFERENCIAS_MERCADO_PAGO = f"{URL_API_MERCADO_PAGO}/checkout/preferences"
+URL_PAGOS_MERCADO_PAGO = f"{URL_API_MERCADO_PAGO}/v1/payments"
 
 
 class PasarelaMercadoPago:
-    """Crea una preferencia de Checkout Pro y devuelve la URL de pago."""
+    """Crea una preferencia de Checkout Pro y devuelve la URL de pago.
 
-    def __init__(self, access_token, url_retorno, cliente=None):
+    url_api permite hablarle al Mercado Pago simulado con el mismo código.
+    """
+
+    def __init__(
+        self,
+        access_token,
+        url_retorno,
+        cliente=None,
+        url_api=URL_API_MERCADO_PAGO,
+    ):
         self._access_token = access_token
         self._url_retorno = url_retorno
         self._cliente = cliente or httpx.Client(timeout=10)
+        self._url_api = url_api
 
     def _cabeceras(self):
         return {"Authorization": f"Bearer {self._access_token}"}
@@ -44,7 +53,7 @@ class PasarelaMercadoPago:
             preferencia["auto_return"] = "approved"
         try:
             respuesta = self._cliente.post(
-                URL_PREFERENCIAS_MERCADO_PAGO,
+                f"{self._url_api}/checkout/preferences",
                 json=preferencia,
                 headers=self._cabeceras(),
             )
@@ -62,7 +71,7 @@ class PasarelaMercadoPago:
             return PagoInformado(id_pago, False, None, 0)
         try:
             respuesta = self._cliente.get(
-                f"{URL_PAGOS_MERCADO_PAGO}/{id_pago}",
+                f"{self._url_api}/v1/payments/{id_pago}",
                 headers=self._cabeceras(),
             )
             respuesta.raise_for_status()
