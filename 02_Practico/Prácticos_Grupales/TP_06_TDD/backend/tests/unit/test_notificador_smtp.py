@@ -7,8 +7,6 @@ from app.adaptadores.notificador import NotificadorSMTP
 from app.dominio.modelos import Compra, MedioPago, TipoPase
 from tests.fechas import FECHA_VISITA, dd_mm_aaaa
 
-URL_PAGO = "https://sandbox.mercadopago.com.ar/checkout?pref_id=1"
-
 
 def compra_nueva(**cambios):
     datos = {
@@ -20,7 +18,6 @@ def compra_nueva(**cambios):
         "medio_pago": MedioPago.TARJETA,
         "total": 15000,
         "id": 7,
-        "url_pago": URL_PAGO,
     }
     datos.update(cambios)
     return Compra(**datos)
@@ -97,19 +94,38 @@ def test_se_conecta_con_tls_y_las_credenciales_configuradas(servidor):
     assert instancia.credenciales == ("parque@ejemplo.com", "secreta")
 
 
-def test_el_mail_informa_cantidad_fecha_total_y_link_de_pago(servidor):
+def test_el_mail_informa_numero_cantidad_fecha_y_total(servidor):
     notificador(servidor).enviar_confirmacion(compra_nueva())
 
     cuerpo = mail_enviado(servidor).get_content()
+    assert "Compra n.º 7" in cuerpo
     resumen = f"Compraste 2 entradas para el {dd_mm_aaaa(FECHA_VISITA)}"
     assert resumen in cuerpo
     assert "$15.000" in cuerpo
-    assert URL_PAGO in cuerpo
+
+
+def test_el_mail_de_pago_con_tarjeta_informa_el_pago_aprobado(servidor):
+    # Con tarjeta, el mail se envía cuando Mercado Pago aprueba el pago.
+    notificador(servidor).enviar_confirmacion(compra_nueva())
+
+    cuerpo = mail_enviado(servidor).get_content()
+    assert "Pago aprobado con Mercado Pago" in cuerpo
+    assert "Completá el pago" not in cuerpo
+
+
+def test_el_mail_de_una_compra_sin_costo_no_pide_pagar(servidor):
+    notificador(servidor).enviar_confirmacion(
+        compra_nueva(edades=[1, 3], total=0)
+    )
+
+    cuerpo = mail_enviado(servidor).get_content()
+    assert "no tiene costo" in cuerpo
+    assert "Mercado Pago" not in cuerpo
 
 
 def test_el_mail_de_pago_en_boleteria_no_incluye_link_de_pago(servidor):
     notificador(servidor).enviar_confirmacion(
-        compra_nueva(medio_pago=MedioPago.EFECTIVO, url_pago=None)
+        compra_nueva(medio_pago=MedioPago.EFECTIVO)
     )
 
     cuerpo = mail_enviado(servidor).get_content()
