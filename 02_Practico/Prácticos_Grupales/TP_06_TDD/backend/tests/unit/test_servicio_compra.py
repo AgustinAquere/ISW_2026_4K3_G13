@@ -8,6 +8,7 @@ from app.dominio.errores import (
     UsuarioNoRegistradoError,
 )
 from app.dominio.modelos import (
+    Compra,
     EstadoCompra,
     MedioPago,
     PagoInformado,
@@ -165,7 +166,7 @@ def test_cp24_pago_con_tarjeta_redirige_a_mercado_pago(
 
     (preferencia,) = mercado_pago_simulado.preferencias_creadas()
     assert compra.url_pago == preferencia["init_point"]
-    assert preferencia["external_reference"] == str(compra.id)
+    assert preferencia["external_reference"] == compra.referencia_externa()
 
 
 def test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago(
@@ -267,7 +268,9 @@ def test_cp30_pago_aprobado_confirma_la_compra_y_envia_el_mail(
     servicio_mp, mercado_pago, compras, notificador
 ):
     compra = compra_con_tarjeta(servicio_mp)
-    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
 
     confirmada = servicio_mp.confirmar_pago(
         EMAIL_REGISTRADO, compra.id, "pago-1"
@@ -283,7 +286,9 @@ def test_cp31_pago_no_aprobado_deja_la_compra_pendiente_sin_mail(
     servicio_mp, mercado_pago, notificador
 ):
     compra = compra_con_tarjeta(servicio_mp)
-    mercado_pago.pago = PagoInformado("pago-1", False, compra.id, compra.total)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", False, compra.referencia_externa(), compra.total
+    )
 
     resultado = servicio_mp.confirmar_pago(
         EMAIL_REGISTRADO, compra.id, "pago-1"
@@ -305,7 +310,7 @@ def test_cp32_pago_que_no_corresponde_a_la_compra_es_rechazado(
     mercado_pago.pago = PagoInformado(
         "pago-1",
         True,
-        compra.id + 1 if otra_compra else compra.id,
+        "otra-referencia" if otra_compra else compra.referencia_externa(),
         compra.total - 1 if otro_monto else compra.total,
     )
 
@@ -320,7 +325,9 @@ def test_cp33_confirmar_dos_veces_el_mismo_pago_envia_un_solo_mail(
     servicio_mp, mercado_pago, notificador
 ):
     compra = compra_con_tarjeta(servicio_mp)
-    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
 
     servicio_mp.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
     servicio_mp.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
@@ -347,7 +354,9 @@ def test_confirmar_el_pago_de_una_compra_de_otro_usuario_es_rechazado(
         mercado_pago,
     )
     compra = compra_con_tarjeta(servicio)
-    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
 
     with pytest.raises(CompraNoEncontradaError):
         servicio.confirmar_pago(otro_usuario, compra.id, "pago-1")
@@ -400,7 +409,9 @@ def test_confirmar_el_pago_de_una_compra_anulada_es_rechazado(
     compra = compra_con_tarjeta(servicio_mp)
     compra.estado = EstadoCompra.ANULADA
     compras.actualizar_estado(compra)
-    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
 
     with pytest.raises(CompraInvalidaError, match="anulada"):
         servicio_mp.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
@@ -416,7 +427,9 @@ def test_cp36_verificar_un_pago_aprobado_confirma_la_compra_y_envia_el_mail(
     servicio_mp, mercado_pago, compras, notificador
 ):
     compra = compra_con_tarjeta(servicio_mp)
-    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
 
     verificada, pago = servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
 
@@ -424,7 +437,7 @@ def test_cp36_verificar_un_pago_aprobado_confirma_la_compra_y_envia_el_mail(
     assert compras.obtener(compra.id).estado == EstadoCompra.CONFIRMADA
     assert pago == mercado_pago.pago
     assert notificador.enviados == [verificada]
-    assert mercado_pago.buscados == [compra.id]
+    assert mercado_pago.buscados == [compra.referencia_externa()]
 
 
 def test_verificar_sin_pagos_deja_la_compra_pendiente(
@@ -444,7 +457,11 @@ def test_verificar_un_pago_rechazado_lo_informa_y_la_compra_sigue_pendiente(
 ):
     compra = compra_con_tarjeta(servicio_mp)
     mercado_pago.pago = PagoInformado(
-        "pago-1", False, compra.id, compra.total, rechazado=True
+        "pago-1",
+        False,
+        compra.referencia_externa(),
+        compra.total,
+        rechazado=True,
     )
 
     verificada, pago = servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
@@ -459,7 +476,7 @@ def test_verificar_un_pago_por_otro_monto_es_rechazado(
 ):
     compra = compra_con_tarjeta(servicio_mp)
     mercado_pago.pago = PagoInformado(
-        "pago-1", True, compra.id, compra.total - 1
+        "pago-1", True, compra.referencia_externa(), compra.total - 1
     )
 
     with pytest.raises(CompraInvalidaError, match="no corresponde"):
@@ -472,13 +489,15 @@ def test_verificar_una_compra_ya_confirmada_no_busca_ni_reenvia_el_mail(
     servicio_mp, mercado_pago, notificador
 ):
     compra = compra_con_tarjeta(servicio_mp)
-    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
     servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
 
     verificada, _ = servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
 
     assert verificada.estado == EstadoCompra.CONFIRMADA
-    assert mercado_pago.buscados == [compra.id]
+    assert mercado_pago.buscados == [compra.referencia_externa()]
     assert len(notificador.enviados) == 1
 
 
@@ -512,3 +531,52 @@ def test_verificar_el_pago_de_una_compra_anulada_es_rechazado(
         servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
 
     assert mercado_pago.buscados == []
+
+
+# 10. Referencia de pago única: el número de compra se repite si se borra la
+# base o si otro integrante usa las mismas credenciales de Mercado Pago, así
+# que la búsqueda de pagos no puede usarlo.
+
+
+def test_cp37_cada_compra_con_tarjeta_tiene_una_referencia_de_pago_unica(
+    servicio_mp,
+):
+    primera = compra_con_tarjeta(servicio_mp)
+    segunda = compra_con_tarjeta(servicio_mp)
+
+    assert primera.referencia_pago
+    assert primera.referencia_pago != segunda.referencia_pago
+    assert primera.referencia_pago != str(primera.id)
+    assert primera.referencia_externa() == primera.referencia_pago
+
+
+def test_cp37_un_pago_de_otra_compra_con_el_mismo_numero_no_la_confirma(
+    servicio_mp, mercado_pago, notificador
+):
+    # Por ejemplo, el pago de la compra 1 de una base anterior.
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado(
+        "pago-ajeno", True, str(compra.id), compra.total
+    )
+
+    with pytest.raises(CompraInvalidaError, match="no corresponde"):
+        servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
+
+    assert compra.estado == EstadoCompra.PENDIENTE_DE_PAGO
+    assert notificador.enviados == []
+
+
+def test_una_compra_sin_referencia_de_pago_usa_su_numero():
+    # Compras con tarjeta registradas antes de la referencia única.
+    compra = Compra(
+        email_usuario=EMAIL_REGISTRADO,
+        fecha_visita=FECHA_VISITA,
+        cantidad=1,
+        edades=[30],
+        tipo_pase=TipoPase.REGULAR,
+        medio_pago=MedioPago.TARJETA,
+        total=10000,
+        id=7,
+    )
+
+    assert compra.referencia_externa() == "7"

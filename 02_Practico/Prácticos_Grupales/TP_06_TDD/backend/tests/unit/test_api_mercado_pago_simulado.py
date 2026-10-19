@@ -129,7 +129,7 @@ def test_la_pasarela_informa_el_pago_del_simulador(
     informado = pasarela.consultar_pago(str(pago["id"]))
 
     assert informado == PagoInformado(
-        str(pago["id"]), aprobado, 7, 15000, rechazado=not aprobado
+        str(pago["id"]), aprobado, "7", 15000, rechazado=not aprobado
     )
 
 
@@ -212,7 +212,7 @@ def test_la_pasarela_busca_el_pago_en_el_simulador(simulador):
 
     informado = pasarela.buscar_pago(7)
 
-    assert informado == PagoInformado(str(pago["id"]), True, 7, 15000)
+    assert informado == PagoInformado(str(pago["id"]), True, "7", 15000)
 
 
 # El transporte en proceso atiende solo la ruta de la API simulada, como un

@@ -124,6 +124,7 @@ def test_una_base_anterior_sin_estado_se_actualiza(conexion):
     compras = RepositorioComprasSQLite(conexion)
 
     assert compras.obtener(1).estado == EstadoCompra.CONFIRMADA
+    assert compras.obtener(1).referencia_pago is None
 
 
 def test_obtener_una_compra_inexistente_devuelve_none(conexion):
@@ -239,8 +240,17 @@ def test_servicio_confirma_el_pago_en_sqlite(
             medio_pago=MedioPago.TARJETA,
         )
     )
-    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
 
     servicio.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
 
     assert compras.obtener(compra.id).estado == EstadoCompra.CONFIRMADA
+
+
+def test_obtener_conserva_la_referencia_de_pago(conexion):
+    compras = RepositorioComprasSQLite(conexion)
+    compra = compras.guardar(compra_nueva(referencia_pago="ref-unica"))
+
+    assert compras.obtener(compra.id).referencia_pago == "ref-unica"
