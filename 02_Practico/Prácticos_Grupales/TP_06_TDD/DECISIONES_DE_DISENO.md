@@ -129,6 +129,11 @@ static/                 ← front: index.html, styles.css y app.js, servidos por
     - Cada compra con tarjeta tiene una **referencia de pago única** (`referencia_pago`, un uuid guardado en la base), que se usa como `external_reference`. El número de compra no sirve: se repite si se borra la base o si otro integrante usa las mismas credenciales, y un pago ajeno con el mismo número y el mismo total confirmaba la compra (hallazgo de la revisión final). Las compras con tarjeta registradas antes de este cambio usan su número.
     - Confirmar o verificar un pago se hace de a una solicitud por vez (`threading.Lock` en `ServicioCompra`): dos consultas simultáneas (el intervalo y `visibilitychange`) enviaban el mail dos veces.
 
+19. **Registro simulado, sin contraseña.** El registro y el inicio de sesión reales pertenecen a otra User Story (FAQ 19). El grupo lo incluye de forma simplificada para mostrar dos cosas en la demo: que solo un usuario registrado puede comprar y que el mail de confirmación llega al correo del usuario. La pantalla de ingreso lo aclara.
+    - Para la demo, la pantalla de ingreso suma "Registrarme". Llama a `POST /usuarios`, que valida el formato del email, lo guarda sin espacios y en minúsculas, y responde 201 si es nuevo o 409 si ya estaba registrado.
+    - El registro usa el mismo repositorio de usuarios que la compra (`obtener_usuarios`, que comparte la conexión SQLite con el servicio de compra). Por eso un email recién registrado ya puede comprar.
+    - "Ingresar" no valida el email a propósito. Así se ve en la demo que la compra de un usuario no registrado se rechaza en el backend (CP-07), y que después de registrarlo se acepta (CP-38).
+
 ## 4. Reglas definidas por el PO y supuestos
 
 Las respuestas del FAQ del PO ([FAQ_PO.md](FAQ_PO.md)) definen la mayoría de los valores. Lo que ni el enunciado ni el FAQ definen se resolvió con supuestos explícitos. Todos los valores están en constantes fáciles de modificar:
