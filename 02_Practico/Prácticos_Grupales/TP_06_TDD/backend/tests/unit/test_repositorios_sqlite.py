@@ -7,7 +7,13 @@ from app.adaptadores.repositorios_sqlite import (
     RepositorioComprasSQLite,
     RepositorioUsuariosSQLite,
 )
-from app.dominio.modelos import Compra, MedioPago, SolicitudCompra, TipoPase
+from app.dominio.modelos import (
+    Compra,
+    EstadoCompra,
+    MedioPago,
+    SolicitudCompra,
+    TipoPase,
+)
 from app.servicios.compra_service import ServicioCompra
 from tests.conftest import EMAIL_REGISTRADO
 
@@ -74,6 +80,37 @@ def test_obtener_devuelve_la_compra_guardada(conexion):
     compra = compras.guardar(compra_nueva())
 
     assert compras.obtener(compra.id) == compra
+
+
+def test_obtener_conserva_el_estado_de_la_compra(conexion):
+    compras = RepositorioComprasSQLite(conexion)
+    compra = compras.guardar(
+        compra_nueva(estado=EstadoCompra.PENDIENTE_DE_PAGO)
+    )
+
+    assert compras.obtener(compra.id).estado == EstadoCompra.PENDIENTE_DE_PAGO
+
+
+def test_una_base_anterior_sin_estado_se_actualiza(conexion):
+    # Base creada antes de registrar el estado del pago (ciclos 7 a 12).
+    conexion.execute(
+        "CREATE TABLE compras ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "email_usuario TEXT NOT NULL, fecha_visita TEXT NOT NULL, "
+        "cantidad INTEGER NOT NULL, edades TEXT NOT NULL, "
+        "tipo_pase TEXT NOT NULL, medio_pago TEXT NOT NULL, "
+        "total INTEGER NOT NULL)"
+    )
+    conexion.execute(
+        "INSERT INTO compras (email_usuario, fecha_visita, cantidad, edades, "
+        "tipo_pase, medio_pago, total) VALUES "
+        "('visitante@ecoharmony.com', '2026-11-15', 1, '[30]', 'REGULAR', "
+        "'EFECTIVO', 10000)"
+    )
+
+    compras = RepositorioComprasSQLite(conexion)
+
+    assert compras.obtener(1).estado == EstadoCompra.CONFIRMADA
 
 
 def test_obtener_una_compra_inexistente_devuelve_none(conexion):
