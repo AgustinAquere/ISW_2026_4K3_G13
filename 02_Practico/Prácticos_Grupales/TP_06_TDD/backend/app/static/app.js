@@ -250,46 +250,87 @@ function abrirDialogo({ titulo, mensaje, detalle = "", mail = null, urlPago = nu
 
 function mostrarCompra(compra) {
   const pase = compra.tipo_pase === "VIP" ? "VIP" : "Regular";
+  const pendiente = compra.estado === "PENDIENTE_DE_PAGO";
   let pago = "Pagás en la boletería del parque el día de tu visita.";
   if (compra.medio_pago === "TARJETA") {
-    pago = compra.url_pago
-      ? "Completá el pago con Mercado Pago."
+    pago = pendiente
+      ? "Completá el pago con Mercado Pago: te enviamos el mail de confirmación cuando se apruebe."
       : "No tenés nada para pagar.";
   }
   abrirDialogo({
-    titulo: "¡Compra registrada!",
+    titulo: pendiente ? "¡Compra registrada!" : "¡Compra confirmada!",
     mensaje: `${compra.mensaje}.`,
     detalle: `Pase ${pase} · Total ${pesos.format(compra.total)}. ${pago}`,
-    mail: sesionEnMemoria,
-    urlPago: compra.url_pago,
+    mail: pendiente ? null : sesionEnMemoria,
+    urlPago: pendiente ? compra.url_pago : null,
   });
 }
 
 $("dialogo-cerrar").addEventListener("click", () => $("dialogo").close());
 
-// Vuelta desde Mercado Pago: informa el estado del pago.
+// Vuelta desde Mercado Pago: el backend consulta el pago a Mercado Pago y, si
+// está aprobado, confirma la compra y envía el mail. El estado que trae la
+// URL solo se usa para explicar un pago que todavía no se aprobó.
 const ESTADOS_DE_PAGO = {
-  approved: ["¡Pago aprobado!", "Tus entradas están confirmadas."],
-  pending: ["Pago pendiente", "Mercado Pago está procesando el pago."],
-  in_process: ["Pago pendiente", "Mercado Pago está procesando el pago."],
-  rejected: ["Pago rechazado", "Podés intentar de nuevo con otro medio de pago."],
+  pending: ["Pago pendiente", "Mercado Pago está procesando el pago. Te enviamos el mail cuando se apruebe."],
+  in_process: ["Pago pendiente", "Mercado Pago está procesando el pago. Te enviamos el mail cuando se apruebe."],
+  rejected: ["Pago rechazado", "Podés intentar de nuevo con otra tarjeta desde el link de pago."],
 };
 
-function informarVueltaDeMercadoPago() {
+async function confirmarPago(idCompra, idPago) {
+  const respuesta = await fetch(`/compras/${encodeURIComponent(idCompra)}/pago`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Usuario-Email": sesionEnMemoria,
+    },
+    body: JSON.stringify({ id_pago: idPago }),
+  });
+  const datos = await respuesta.json();
+  if (!respuesta.ok) throw new Error(datos.detail || "No se pudo confirmar el pago.");
+  return datos;
+}
+
+async function informarVueltaDeMercadoPago() {
   const parametros = new URLSearchParams(window.location.search);
   const estado = parametros.get("collection_status") || parametros.get("status");
-  if (!estado) return;
+  const idCompra = parametros.get("external_reference");
+  const idPago = parametros.get("payment_id") || parametros.get("collection_id");
+  if (!estado && !idPago) return;
   window.history.replaceState(null, "", window.location.pathname);
-  const [titulo, mensaje] = ESTADOS_DE_PAGO[estado] || [
-    "Pago no completado",
-    "No se completó el pago en Mercado Pago.",
-  ];
-  const compra = parametros.get("external_reference");
-  abrirDialogo({
-    titulo,
-    mensaje,
-    detalle: compra ? `Compra n.º ${compra}.` : "",
-  });
+  const detalle = idCompra ? `Compra n.º ${idCompra}.` : "";
+
+  if (!idCompra || !idPago || idPago === "null") {
+    abrirDialogo({
+      titulo: "Pago no completado",
+      mensaje: "No se completó el pago en Mercado Pago.",
+      detalle,
+    });
+    return;
+  }
+  try {
+    const compra = await confirmarPago(idCompra, idPago);
+    if (compra.estado === "CONFIRMADA") {
+      abrirDialogo({
+        titulo: "¡Pago aprobado!",
+        mensaje: `${compra.mensaje}. Tus entradas están confirmadas.`,
+        detalle: `${detalle} Total ${pesos.format(compra.total)}.`,
+        mail: sesionEnMemoria,
+      });
+      return;
+    }
+    const [titulo, mensaje] = ESTADOS_DE_PAGO[estado] || [
+      "Pago no completado",
+      "No se completó el pago en Mercado Pago.",
+    ];
+    abrirDialogo({ titulo, mensaje, detalle });
+  } catch (error) {
+    abrirDialogo({
+      titulo: "No pudimos confirmar el pago",
+      mensaje: error.message,
+      detalle,
+    });
+  }
 }
 
 mostrarPantalla();
