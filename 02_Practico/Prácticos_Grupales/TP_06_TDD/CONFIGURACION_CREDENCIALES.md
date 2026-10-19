@@ -48,8 +48,11 @@ Se necesita una cuenta de Mercado Pago (puede ser la personal de un integrante).
 
    ```
    MP_ACCESS_TOKEN=<Access Token de prueba>
+   MP_EMAIL_COMPRADOR_PRUEBA=<usuario del comprador de prueba>@testuser.com
    URL_PUBLICA=http://127.0.0.1:8000/
    ```
+
+   En modo prueba Mercado Pago solo acepta pagos del comprador de prueba. Con un email real responde "Una de las partes con la que intentás hacer el pago es de prueba". Con `MP_EMAIL_COMPRADOR_PRUEBA`, el checkout trae ese email completado y no hay que escribirlo. Es el *Usuario* de la tabla de *Cuentas de prueba* seguido de `@testuser.com`. El mail de confirmación de EcoHarmony va igual al email con el que se ingresó al sitio.
 
    `URL_PUBLICA` es a donde vuelve Mercado Pago al terminar el pago. En la computadora local se deja como está.
 

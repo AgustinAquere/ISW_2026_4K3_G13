@@ -597,6 +597,7 @@ La base creada antes del ciclo 13 se actualizó sola con la columna del estado. 
 | 27 | El transporte en proceso atiende solo la API simulada | `221c189` | `0dd53dc` | — | 201 |
 | 28 | Referencia de pago única por compra (hallazgo de la revisión final) | `f987c3a` | `579ece0` | — | 207 |
 | 29 | Dos verificaciones simultáneas envían un solo mail (hallazgo de la revisión final) | `c73a980`* | `36c5a4b` | — | 208 |
+| 30 | Email del comprador de prueba en la preferencia (`payer.email`) | `facab4a` | `4431c26` | — | 211 |
 
 **El front** se actualizó en un commit aparte (`fda1650`): el checkout se abre en otra pestaña y la pestaña del sitio espera el pago. **El ciclo 22 baja de 174 a 173 pruebas** porque borra las 3 de la pasarela simulada vieja y agrega 2.
 
