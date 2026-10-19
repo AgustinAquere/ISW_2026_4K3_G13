@@ -31,20 +31,24 @@
     <section id="pantalla-ingreso" class="tarjeta" hidden>
       <h1>Ingresá para comprar</h1>
       <div class="cartel-registro" role="note">
-        <p><strong>Solo se puede comprar con correos registrados.</strong></p>
-        <p>El único correo registrado es <strong>visitante@ecoharmony.com</strong>. Con cualquier otro correo, la compra da error.</p>
+        <p><strong>Solo se puede comprar con correos registrados.</strong> Con un correo que no está registrado, la compra da error.</p>
+        <p>Para probarlo, registrá tu correo con <strong>Registrarme</strong>: el mail de confirmación llega a ese correo. También está registrado <strong>visitante@ecoharmony.com</strong>.</p>
+        <p class="aclaracion">El registro corresponde a otro caso de uso. Lo incluimos de forma simplificada, sin contraseña, para mostrar la validación de usuarios registrados y el envío del mail.</p>
       </div>
-      <p class="ayuda">Sesión simulada: no hace falta contraseña.</p>
       <form id="form-ingreso" novalidate>
         <label for="email">Email</label>
         <input id="email" type="email" autocomplete="email" required placeholder="tu@email.com">
         <p class="error" id="error-ingreso" role="alert"></p>
-        <button type="submit" class="boton">Ingresar</button>
+        <div class="acciones">
+          <button type="submit" class="boton">Ingresar</button>
+          <button type="button" class="boton secundario" id="registrarme">Registrarme</button>
+        </div>
       </form>
     </section>
 
     <section id="pantalla-compra" class="tarjeta" hidden>
       <h1>Comprar entradas</h1>
+      <p id="aviso-registro" class="aviso-mail" role="status" hidden></p>
       <form id="form-compra" novalidate>
         <fieldset>
           <legend>1. Fecha de visita</legend>
