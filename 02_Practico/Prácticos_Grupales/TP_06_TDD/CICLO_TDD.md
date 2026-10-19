@@ -36,8 +36,17 @@ Un buen Red falla **por el motivo correcto**: el mensaje de la falla describe el
 | 10 | Mail por SMTP | `NotificadorSMTP` inexistente | `NotificadorSMTP` con `smtplib`, STARTTLS y el error registrado en el log | cuerpo del mail en una función aparte (`_cuerpo_del_mail`) |
 | 11 | Datos para el front | `fechas_disponibles` y `obtener_reloj` inexistentes | `fechas_disponibles(ahora)`, `GET /fechas-disponibles`, `POST /cotizacion`, front estático en `/` | la prueba de `GET /` que esperaba JSON se reemplazó por la del front |
 | 12 | Configuración por `.env` | `crear_pasarela_pago`, `crear_notificador` y `usuarios_registrados` inexistentes | selección de adaptadores según la configuración | `dependencias.py` arma el servicio con esas funciones |
+| 13 | CP-29: estado de la compra | `EstadoCompra` inexistente; la API no informaba el estado (`KeyError: 'estado'`) | con tarjeta la compra queda pendiente de pago y no envía el mail; SQLite guarda el estado y actualiza bases anteriores | `ServicioCompra._estado_inicial` |
+| 14 | CP-30 a CP-33: confirmar el pago | `PagoInformado` y `CompraNoEncontradaError` inexistentes | `ServicioCompra.confirmar_pago`, `actualizar_estado` en los repositorios, pasarela simulada que vuelve al sitio aprobada | se quita la URL de checkout simulado sin uso |
+| — | Fechas dinámicas en las pruebas | *(solo refactor)* | — | `tests/fechas.py`: ninguna prueba usa fechas fijas |
+| 15 | Consulta del pago en Mercado Pago | `URL_PAGOS_MERCADO_PAGO` inexistente | `PasarelaMercadoPago.consultar_pago` y `auto_return` con URL https | cabecera de autorización en `_cabeceras()` |
+| 16 | Endpoint de confirmación y CP-01 completo | las 5 pruebas reciben `405 Method Not Allowed` | `POST /compras/{id}/pago` | control de sesión en la dependencia `usuario_en_sesion` |
+| 17 | Mail con el pago aprobado | 3 pruebas fallan: el mail no tiene número de compra y usa el link de pago para elegir el texto | el texto depende del medio de pago y del total | — |
+| 18 | CP-34: Mercado Pago no disponible | `EstadoCompra.ANULADA` inexistente y un reintento se rechazaba con "ya compraste 6" | la compra se anula y no cuenta para el límite | `_iniciar_pago` y `_cambiar_estado` |
 
-Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8 y 93 al cerrar el ciclo 12). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, y las de los ciclos 9 a 12, en la sección 6.
+Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8, 93 al cerrar el ciclo 12 y 129 al cerrar el ciclo 18). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, las de los ciclos 9 a 12, en la sección 6, y las de los ciclos 13 a 18, en la sección 7.
+
+Las secciones 3 a 6 citan fechas puntuales (por ejemplo, "el 09/11/2026") porque registran cómo eran las pruebas en ese momento. Desde el refactor de la sección 7.2, las pruebas calculan sus fechas a partir del día en que se ejecutan.
 
 **Tipos de Red observados.** En los ciclos 1 y 6 el Red fue una falla de comportamiento: la aserción no se cumplía (por ejemplo, `assert 200 == 401`). En los ciclos 2 a 5 el Red fue una falla de importación: la prueba usaba algo que todavía no existía (`CompraInvalidaError`, los módulos `calendario` y `precios`, el repositorio de compras), por lo que pytest no podía ejecutarla. Ambos son válidos en TDD (Kent Beck considera Red también cuando la prueba "no compila"), pero el segundo tipo no muestra cada aserción fallando. Por eso, en la sección 3 se verificó cada prueba por separado mediante mutaciones.
 
@@ -457,3 +466,107 @@ Tipos de Red observados: en los ciclos 9 a 12 fallaron las importaciones (adapta
 | Configuración: no se separan los usuarios registrados | ✅ Detectada (1 de 93 falla) | `test_los_usuarios_registrados_se_pueden_configurar` |
 
 El front (JavaScript) no se construyó con TDD ni tiene pruebas automatizadas: solo muestra datos y llama a la API, que tiene todas las reglas y sus pruebas. Se probó a mano en el navegador, en escritorio y en celular: inicio de sesión simulado, calendario con lunes y fechas pasadas deshabilitados, total de $15.000 para edades 40, 8 y 2 con pase regular, compra con tarjeta (aviso del mail y botón de Mercado Pago), rechazo por superar las 10 entradas para la misma fecha y pantalla de vuelta de Mercado Pago con el pago aprobado.
+
+## 7. Ciclos 13 a 18: completar el pago con Mercado Pago
+
+Hasta el ciclo 12, el backend creaba el pago en Mercado Pago y redirigía, pero no registraba si el pago se aprobaba. Además, con tarjeta el mail de confirmación se enviaba al registrar la compra, antes de pagar, y si Mercado Pago fallaba la compra quedaba registrada sin link de pago. Con el FAQ del PO (ver [FAQ_PO.md](FAQ_PO.md)), el grupo decidió que con tarjeta el mail se envía cuando Mercado Pago aprueba el pago (decisiones 14 y 15 de [DECISIONES_DE_DISENO.md](DECISIONES_DE_DISENO.md)).
+
+### 7.1 Commits de cada ciclo
+
+Cada paso tiene su propio commit en la rama `tp-tdd`, y se ejecutó la batería completa antes de cada uno:
+
+| Ciclo | Red | Green | Refactor | Pruebas |
+|---|---|---|---|---|
+| 13 | `330c911` | `29543cc` | `aafc3f4` | 98 |
+| 14 | `47c1da0` | `04525ab` | `9f13f76` | 110 |
+| Fechas dinámicas | — | — | `0f9a9da` | 110 |
+| 15 | `efb1769` | `33ea54a` | `0a75840` | 119 |
+| 16 | `ca5257b` | `571b34f` | `0e69ce6` | 123 |
+| 17 | `53fd474` | `ea611c6` | (sin refactor) | 125 |
+| 18 | `66cafb6` | `5452807` | `e7a2566` | 129 |
+
+El front se actualizó en un commit aparte (`20ead50`). Como en los ciclos anteriores, no tiene pruebas automatizadas: solo llama a la API.
+
+**Tipos de Red observados.**
+- **Ciclos 16, 17 y 18:** fallas de comportamiento. En el 16, las 5 pruebas recibían `405 Method Not Allowed`. En el 18, un reintento de 6 entradas se rechazaba con "ya compraste 6", porque la compra fallida contaba para el límite.
+- **Ciclos 13, 14 y 15:** fallas de importación (`EstadoCompra`, `PagoInformado`, `URL_PAGOS_MERCADO_PAGO`), con algunas de comportamiento en la API (`KeyError: 'estado'`).
+
+Por eso todos se verificaron con mutaciones (sección 7.3).
+
+**Un desvío en el ciclo 14.** La pasarela simulada pasó a volver al sitio con el pago aprobado, en lugar de devolver un link de Mercado Pago. El Red de ese ciclo actualizó la prueba de CP-24, pero no la de CP-01, que todavía exigía el dominio de Mercado Pago en el link simulado. En el Green esa prueba falló. Se corrigió en el mismo commit Green, para que exija que haya un link de pago, y quedó explicado en el mensaje del commit.
+
+### 7.2 Fechas dinámicas en las pruebas
+
+Antes de este refactor, las pruebas usaban un reloj fijo con fechas puntuales: "hoy" era el martes 10/11/2026 y la visita, el 15/11/2026. Como el reloj era fijo, no fallaban con el paso del tiempo, pero cada fecha estaba escrita a mano.
+
+El refactor agregó `tests/fechas.py`, que calcula cada fecha a partir del día en que se ejecutan las pruebas:
+- **El "hoy" de las pruebas:** el primer día desde la fecha real en que el parque abre, abrió el día anterior y abre a 31 días. Así los valores límite de CP-12 (ayer) y CP-16 (31 días) siguen dependiendo de una sola regla.
+- **El próximo lunes** y **el próximo 25 de diciembre y 1 de enero**.
+- **Una fecha de visita abierta:** con día mayor a 12, para que `dd/mm/aaaa` y `mm/dd/aaaa` no coincidan al verificar el resumen.
+
+Solo cambiaron las pruebas: el código de la aplicación quedó igual. Para comprobar que la batería pasa cualquier día, se ejecutó sobre una copia en la que "hoy" se reemplazó por 124 fechas simuladas: todos los días del 01/12/2026 al 15/01/2027, una fecha cada 9 días durante dos años y el 29/02/2028. Pasaron las 124.
+
+También se repitieron las mutaciones de las reglas de fecha con las pruebas nuevas. Las 10 se detectaron:
+
+| Mutación | Pruebas que fallan |
+|---|---|
+| Se acepta el día anterior a hoy (CP-12) | 1 |
+| Se quita el cierre de los lunes (CP-13) | 5 |
+| Se quitan los feriados (CP-14 y CP-15) | 3 |
+| Se quita solo el 1 de enero (CP-14) | 2 |
+| Anticipación 31 → 32 días (CP-16) | 2 |
+| Anticipación 31 → 30 días (CP-16) | 3 |
+| Hora límite `>` → `>=` (CP-17) | 1 |
+| Calendario con ventana de 30 días | 1 |
+| Calendario sin filtrar los días cerrados | 4 |
+| Fecha del resumen en formato mm/dd/aaaa (CP-26) | 4 |
+
+### 7.3 Verificación con mutaciones (ciclos 13 a 18)
+
+Se aplicaron 29 mutaciones, una por vez, sobre una copia del código, con la batería de 129 pruebas. **Las 29 se detectaron:**
+
+| Ciclo | Mutación (regla que se rompe) | Fallan | Prueba que la detecta |
+|---|---|---|---|
+| 13 | Con tarjeta la compra nunca queda pendiente | 14 de 129 | `test_cp29_compra_con_tarjeta_queda_pendiente_de_pago_sin_mail`, entre otras |
+| 13 | Una compra con tarjeta de $0 queda pendiente | 2 de 129 | `test_compra_con_tarjeta_sin_costo_queda_confirmada_y_envia_mail` |
+| 13 | La compra confirmada no envía el mail | 2 de 129 | `test_cp25_compra_exitosa_envia_mail_de_confirmacion` |
+| 13 | SQLite no guarda el estado | 2 de 129 | `test_obtener_conserva_el_estado_de_la_compra` |
+| 13 | SQLite no agrega la columna a bases anteriores | 1 de 129 | `test_una_base_anterior_sin_estado_se_actualiza` |
+| 14 | Se confirma el pago de la compra de otro usuario | 1 de 129 | `test_confirmar_el_pago_de_una_compra_de_otro_usuario_es_rechazado` |
+| 14 | Confirmar dos veces reenvía el mail | 1 de 129 | `test_cp33_confirmar_dos_veces_el_mismo_pago_envia_un_solo_mail` |
+| 14 | No se verifica a qué compra corresponde el pago | 1 de 129 | `test_cp32_...[CP-32-otra-compra]` |
+| 14 | No se verifica el monto del pago | 1 de 129 | `test_cp32_...[CP-32-otro-monto]` |
+| 14 | Se confirma aunque el pago no esté aprobado | 1 de 129 | `test_cp31_pago_no_aprobado_deja_la_compra_pendiente_sin_mail` |
+| 14 | El cambio de estado no se guarda en el repositorio | 1 de 129 | `test_servicio_confirma_el_pago_en_sqlite` |
+| 14 | SQLite no actualiza el estado | 2 de 129 | `test_actualizar_estado_guarda_el_nuevo_estado` |
+| 14 | La pasarela simulada aprueba un pago desconocido | 1 de 129 | `test_un_pago_simulado_desconocido_no_esta_aprobado` |
+| 15 | Se consultan ids de pago no numéricos | 1 de 129 | `test_un_id_de_pago_que_no_es_numerico_no_se_consulta` |
+| 15 | Todo pago figura aprobado | 3 de 129 | `test_un_pago_no_aprobado_se_informa_sin_aprobar[...]` |
+| 15 | Se ignora la referencia de la compra | 1 de 129 | `test_un_pago_sin_referencia_no_corresponde_a_ninguna_compra` |
+| 15 | Se ignora el monto pagado | 1 de 129 | `test_consulta_el_pago_aprobado_a_mercado_pago` |
+| 15 | `auto_return` siempre | 1 de 129 | `test_con_url_local_no_se_pide_la_vuelta_automatica` |
+| 15 | `auto_return` nunca | 1 de 129 | `test_con_url_publica_vuelve_sola_al_sitio_al_aprobarse_el_pago` |
+| 16 | Se acepta una solicitud sin sesión | 2 de 129 | `test_confirmar_el_pago_sin_iniciar_sesion_es_rechazado`, `test_cp07_...` |
+| 16 | Compra inexistente responde 400 en lugar de 404 | 1 de 129 | `test_confirmar_el_pago_de_una_compra_inexistente_responde_404` |
+| 16 | Mercado Pago caído al confirmar responde 500 | 1 de 129 | `test_api_informa_si_no_se_puede_consultar_el_pago` |
+| 17 | El mail no informa el número de compra | 1 de 129 | `test_el_mail_informa_numero_cantidad_fecha_y_total` |
+| 17 | Todo mail dice "pago aprobado con Mercado Pago" | 1 de 129 | `test_el_mail_de_pago_en_boleteria_no_incluye_link_de_pago` |
+| 17 | El mail de una compra de $0 menciona Mercado Pago | 1 de 129 | `test_el_mail_de_una_compra_sin_costo_no_pide_pagar` |
+| 18 | La compra no se anula si Mercado Pago falla | 2 de 129 | `test_cp34_si_mercado_pago_no_esta_disponible_la_compra_se_anula` |
+| 18 | En memoria, las compras anuladas cuentan para el límite | 1 de 129 | `test_cp34_una_compra_anulada_no_cuenta_para_el_limite_por_fecha` |
+| 18 | En SQLite, las compras anuladas cuentan para el límite | 1 de 129 | `test_entradas_compradas_no_cuenta_las_compras_anuladas` |
+| 18 | Se confirma el pago de una compra anulada | 1 de 129 | `test_confirmar_el_pago_de_una_compra_anulada_es_rechazado` |
+
+La primera mutación hace fallar 14 pruebas porque todo el flujo con tarjeta depende de que la compra quede pendiente. En las demás falla solo la prueba de la regla rota.
+
+### 7.4 Prueba del flujo completo
+
+Con la aplicación levantada y sin credenciales (Mercado Pago y mail simulados), se recorrió el flujo por la API:
+
+1. Una compra con tarjeta quedó `PENDIENTE_DE_PAGO`, sin mail.
+2. Al confirmar el pago, quedó `CONFIRMADA` y el mail se escribió en el log una sola vez.
+3. Una segunda confirmación no reenvió el mail.
+4. Otro usuario recibió 404 al intentar confirmar esa compra.
+5. Una compra en efectivo quedó confirmada y envió el mail en el momento.
+
+La base creada antes del ciclo 13 se actualizó sola con la columna del estado. La prueba con Mercado Pago (modo prueba) y Gmail reales se hace siguiendo [CONFIGURACION_CREDENCIALES.md](CONFIGURACION_CREDENCIALES.md).
