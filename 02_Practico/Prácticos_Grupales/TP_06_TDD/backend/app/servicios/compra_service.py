@@ -17,7 +17,6 @@ class ServicioCompra:
     def comprar(self, solicitud):
         self._validar(solicitud)
         total = self._calcular_total(solicitud)
-        paga_con_tarjeta = solicitud.medio_pago == MedioPago.TARJETA
         compra = Compra(
             email_usuario=solicitud.email_usuario,
             fecha_visita=solicitud.fecha_visita,
@@ -26,9 +25,7 @@ class ServicioCompra:
             tipo_pase=solicitud.tipo_pase,
             medio_pago=solicitud.medio_pago,
             total=total,
-            estado=EstadoCompra.PENDIENTE_DE_PAGO
-            if paga_con_tarjeta and total > 0
-            else EstadoCompra.CONFIRMADA,
+            estado=self._estado_inicial(solicitud.medio_pago, total),
         )
         self._compras.guardar(compra)
         if compra.estado == EstadoCompra.PENDIENTE_DE_PAGO:
@@ -36,6 +33,14 @@ class ServicioCompra:
         else:
             self._notificador.enviar_confirmacion(compra)
         return compra
+
+    @staticmethod
+    def _estado_inicial(medio_pago, total):
+        # Con tarjeta se confirma cuando Mercado Pago aprueba el pago. Una
+        # compra sin costo no pasa por Mercado Pago, que no cobra $0.
+        if medio_pago == MedioPago.TARJETA and total > 0:
+            return EstadoCompra.PENDIENTE_DE_PAGO
+        return EstadoCompra.CONFIRMADA
 
     def _validar(self, solicitud):
         if not self._usuarios.esta_registrado(solicitud.email_usuario):
