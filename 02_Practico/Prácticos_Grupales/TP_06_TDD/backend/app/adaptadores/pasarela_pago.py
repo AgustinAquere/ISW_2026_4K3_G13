@@ -19,6 +19,9 @@ class PasarelaMercadoPago:
         self._url_retorno = url_retorno
         self._cliente = cliente or httpx.Client(timeout=10)
 
+    def _cabeceras(self):
+        return {"Authorization": f"Bearer {self._access_token}"}
+
     def crear_pago(self, compra):
         palabra = "entrada" if compra.cantidad == 1 else "entradas"
         preferencia = {
@@ -43,7 +46,7 @@ class PasarelaMercadoPago:
             respuesta = self._cliente.post(
                 URL_PREFERENCIAS_MERCADO_PAGO,
                 json=preferencia,
-                headers={"Authorization": f"Bearer {self._access_token}"},
+                headers=self._cabeceras(),
             )
             respuesta.raise_for_status()
         except httpx.HTTPError as error:
@@ -60,7 +63,7 @@ class PasarelaMercadoPago:
         try:
             respuesta = self._cliente.get(
                 f"{URL_PAGOS_MERCADO_PAGO}/{id_pago}",
-                headers={"Authorization": f"Bearer {self._access_token}"},
+                headers=self._cabeceras(),
             )
             respuesta.raise_for_status()
         except httpx.HTTPError as error:
