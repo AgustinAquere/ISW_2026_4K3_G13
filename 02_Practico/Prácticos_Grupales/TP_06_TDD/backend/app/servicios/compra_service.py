@@ -1,6 +1,6 @@
 from app.dominio.calendario import validar_fecha_visita
 from app.dominio.errores import CompraInvalidaError, UsuarioNoRegistradoError
-from app.dominio.modelos import Compra, MedioPago
+from app.dominio.modelos import Compra, EstadoCompra, MedioPago
 from app.dominio.precios import calcular_precio_entrada
 
 CANTIDAD_MAXIMA = 10
@@ -16,6 +16,8 @@ class ServicioCompra:
 
     def comprar(self, solicitud):
         self._validar(solicitud)
+        total = self._calcular_total(solicitud)
+        paga_con_tarjeta = solicitud.medio_pago == MedioPago.TARJETA
         compra = Compra(
             email_usuario=solicitud.email_usuario,
             fecha_visita=solicitud.fecha_visita,
@@ -23,12 +25,16 @@ class ServicioCompra:
             edades=solicitud.edades,
             tipo_pase=solicitud.tipo_pase,
             medio_pago=solicitud.medio_pago,
-            total=self._calcular_total(solicitud),
+            total=total,
+            estado=EstadoCompra.PENDIENTE_DE_PAGO
+            if paga_con_tarjeta and total > 0
+            else EstadoCompra.CONFIRMADA,
         )
         self._compras.guardar(compra)
-        if compra.medio_pago == MedioPago.TARJETA and compra.total > 0:
+        if compra.estado == EstadoCompra.PENDIENTE_DE_PAGO:
             compra.url_pago = self._pasarela_pago.crear_pago(compra)
-        self._notificador.enviar_confirmacion(compra)
+        else:
+            self._notificador.enviar_confirmacion(compra)
         return compra
 
     def _validar(self, solicitud):

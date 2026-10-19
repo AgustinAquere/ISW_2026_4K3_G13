@@ -13,6 +13,11 @@ class MedioPago(str, Enum):
     TARJETA = "TARJETA"
 
 
+class EstadoCompra(str, Enum):
+    PENDIENTE_DE_PAGO = "PENDIENTE_DE_PAGO"
+    CONFIRMADA = "CONFIRMADA"
+
+
 @dataclass(frozen=True)
 class SolicitudCompra:
     email_usuario: str
@@ -34,6 +39,7 @@ class Compra:
     total: int
     id: int | None = None
     url_pago: str | None = None
+    estado: EstadoCompra = EstadoCompra.CONFIRMADA
 
     def resumen(self):
         palabra = "entrada" if self.cantidad == 1 else "entradas"

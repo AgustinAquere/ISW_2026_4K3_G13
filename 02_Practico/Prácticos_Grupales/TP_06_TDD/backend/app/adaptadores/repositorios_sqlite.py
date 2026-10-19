@@ -1,7 +1,7 @@
 import json
 from datetime import date
 
-from app.dominio.modelos import Compra, MedioPago, TipoPase
+from app.dominio.modelos import Compra, EstadoCompra, MedioPago, TipoPase
 
 
 class RepositorioUsuariosSQLite:
@@ -27,7 +27,7 @@ class RepositorioComprasSQLite:
     # url_pago no se guarda: se genera después de registrar la compra.
     _COLUMNAS = (
         "id, email_usuario, fecha_visita, cantidad, edades, tipo_pase, "
-        "medio_pago, total"
+        "medio_pago, total, estado"
     )
 
     def __init__(self, conexion):
@@ -42,15 +42,28 @@ class RepositorioComprasSQLite:
                 "edades TEXT NOT NULL, "
                 "tipo_pase TEXT NOT NULL, "
                 "medio_pago TEXT NOT NULL, "
-                "total INTEGER NOT NULL)"
+                "total INTEGER NOT NULL, "
+                "estado TEXT NOT NULL DEFAULT 'CONFIRMADA')"
             )
+            columnas = {
+                fila[1]
+                for fila in self._conexion.execute(
+                    "PRAGMA table_info(compras)"
+                )
+            }
+            if "estado" not in columnas:
+                # Bases creadas antes de registrar el estado del pago.
+                self._conexion.execute(
+                    "ALTER TABLE compras ADD COLUMN "
+                    "estado TEXT NOT NULL DEFAULT 'CONFIRMADA'"
+                )
 
     def guardar(self, compra):
         with self._conexion:
             cursor = self._conexion.execute(
                 "INSERT INTO compras (email_usuario, fecha_visita, cantidad, "
-                "edades, tipo_pase, medio_pago, total) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "edades, tipo_pase, medio_pago, total, estado) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     compra.email_usuario,
                     compra.fecha_visita.isoformat(),
@@ -59,6 +72,7 @@ class RepositorioComprasSQLite:
                     compra.tipo_pase.value,
                     compra.medio_pago.value,
                     compra.total,
+                    compra.estado.value,
                 ),
             )
         compra.id = cursor.lastrowid
@@ -87,7 +101,17 @@ class RepositorioComprasSQLite:
 
     @staticmethod
     def _a_compra(fila):
-        id_compra, email, fecha, cantidad, edades, pase, pago, total = fila
+        (
+            id_compra,
+            email,
+            fecha,
+            cantidad,
+            edades,
+            pase,
+            pago,
+            total,
+            estado,
+        ) = fila
         return Compra(
             id=id_compra,
             email_usuario=email,
@@ -97,4 +121,5 @@ class RepositorioComprasSQLite:
             tipo_pase=TipoPase(pase),
             medio_pago=MedioPago(pago),
             total=total,
+            estado=EstadoCompra(estado),
         )

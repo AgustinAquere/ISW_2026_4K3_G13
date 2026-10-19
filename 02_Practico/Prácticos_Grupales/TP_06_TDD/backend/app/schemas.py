@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from app.dominio.modelos import MedioPago, TipoPase
+from app.dominio.modelos import EstadoCompra, MedioPago, TipoPase
 
 
 class CompraRequest(BaseModel):
@@ -22,6 +22,7 @@ class CompraResponse(BaseModel):
     medio_pago: MedioPago
     total: int
     url_pago: str | None
+    estado: EstadoCompra
     mensaje: str
 
     @classmethod
@@ -34,6 +35,7 @@ class CompraResponse(BaseModel):
             medio_pago=compra.medio_pago,
             total=compra.total,
             url_pago=compra.url_pago,
+            estado=compra.estado,
             mensaje=compra.resumen(),
         )
 
