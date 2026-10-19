@@ -1,6 +1,8 @@
 import smtplib
 from email.message import EmailMessage
 
+from app.dominio.modelos import MedioPago
+
 
 class NotificadorEnMemoria:
     """Doble de prueba: registra los mails en lugar de enviarlos."""
@@ -68,12 +70,15 @@ class NotificadorSMTP:
 
 def _cuerpo_del_mail(compra):
     total = f"${compra.total:,}".replace(",", ".")
-    if compra.url_pago:
-        pago = f"Completá el pago con Mercado Pago: {compra.url_pago}"
+    if compra.total == 0:
+        pago = "Tu compra no tiene costo."
+    elif compra.medio_pago == MedioPago.TARJETA:
+        pago = "Pago aprobado con Mercado Pago."
     else:
         pago = "Pagás en la boletería del parque el día de la visita."
     return (
         f"¡Gracias por tu compra!\n\n"
+        f"Compra n.º {compra.id}\n"
         f"{compra.resumen()}.\n"
         f"Pase: {compra.tipo_pase.value}\n"
         f"Total: {total}\n"
