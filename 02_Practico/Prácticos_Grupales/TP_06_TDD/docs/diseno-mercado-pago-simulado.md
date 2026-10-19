@@ -10,12 +10,14 @@ Hoy, sin credenciales, `PasarelaMercadoPagoSimulada` devuelve un link que vuelve
 
 ## 2. Qué se construye
 
-Dos modos, elegidos por el `.env`, igual que hoy:
+**El grupo eligió el modo simulado** (19/10/2026): no hay tiempo para configurar y depurar la integración con el Mercado Pago real. El código de esa integración se queda como está, pero el grupo no lo va a configurar ni probar con credenciales para esta entrega.
+
+La aplicación sigue eligiendo el modo por el `.env`:
 
 | Modo | Cuándo | Qué pasa |
 |---|---|---|
-| **Real (modo prueba de Mercado Pago)** | `MP_ACCESS_TOKEN` tiene un valor | Sin cambios: Checkout Pro de prueba con la cuenta del grupo ([CONFIGURACION_CREDENCIALES.md](../CONFIGURACION_CREDENCIALES.md)). |
-| **Simulado** | `MP_ACCESS_TOKEN` vacío | **Nuevo:** un Mercado Pago simulado dentro de la misma aplicación, con pantalla de checkout, resultado y vuelta al sitio. |
+| **Simulado** (el que se usa) | `MP_ACCESS_TOKEN` vacío | **Nuevo:** un Mercado Pago simulado dentro de la misma aplicación, con pantalla de checkout, resultado y vuelta al sitio. |
+| Real (modo prueba de Mercado Pago) | `MP_ACCESS_TOKEN` tiene un valor | Sin cambios y fuera del alcance de esta entrega ([CONFIGURACION_CREDENCIALES.md](../CONFIGURACION_CREDENCIALES.md)). |
 
 ### 2.1 Recorrido de la demo (modo simulado)
 
@@ -48,19 +50,26 @@ Igual que las [tarjetas de prueba reales](https://www.mercadopago.com.ar/develop
 
 El grupo pidió aprobado y rechazado. `CONT` (pendiente) y los rechazos con motivo son **decisión del diseño**: cuestan poco y el front ya sabe mostrar un pago pendiente.
 
-### 2.3 Tarjetas aceptadas
+### 2.3 Validación de la tarjeta
 
-Solo las tarjetas de prueba publicadas por Mercado Pago:
+Según lo que definió el grupo, la simulación **solo comprueba que el número tenga formato de tarjeta**. No compara contra una lista de tarjetas de prueba. El grupo no va a usar tarjetas reales en la simulación. Las validaciones son:
 
-| Tarjeta | Número | Código |
-|---|---|---|
-| Mastercard crédito | 5031 7557 3453 0604 | 123 |
-| Visa crédito | 4509 9535 6623 3704 | 123 |
-| American Express | 3711 803032 57522 | 1234 |
-| Mastercard débito | 5287 3383 1025 3304 | 123 |
-| Visa débito | 4002 7686 9439 5619 | 123 |
+- **Número:** solo dígitos (se aceptan espacios), con un largo y un prefijo de una marca conocida, y que pase el dígito verificador (algoritmo de Luhn), que es el control estándar de formato de las tarjetas:
 
-Cualquier otro número se rechaza en el formulario con "Solo se aceptan tarjetas de prueba". El vencimiento tiene que ser un mes futuro: se calcula contra la fecha actual, nunca contra una fecha fija.
+  | Marca | Prefijo | Largo |
+  |---|---|---|
+  | Visa | 4 | 13, 16 o 19 |
+  | Mastercard | 51 a 55, o 2221 a 2720 | 16 |
+  | American Express | 34 o 37 | 15 |
+
+  Si no cumple, el formulario muestra "Revisá el número de tarjeta".
+- **Código de seguridad:** 4 dígitos para American Express y 3 para las demás.
+- **Vencimiento:** formato MM/AA con un mes futuro. Se calcula contra la fecha actual, nunca contra una fecha fija.
+- **Titular y DNI:** obligatorios; el DNI, de 7 u 8 dígitos.
+
+Las [tarjetas de prueba de Mercado Pago](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro/integration-test/test-purchases) cumplen el formato (se verificó el Luhn de las cinco), así que se pueden usar en la demo; por ejemplo, Mastercard 5031 7557 3453 0604, código 123.
+
+**Decisión del diseño:** sin selector de crédito o débito. Todos los pagos simulados son con tarjeta de crédito (`payment_type=credit_card`).
 
 ## 3. Cómo funciona por dentro
 
@@ -93,15 +102,15 @@ Sin cabecera `Authorization`, o con un token distinto del de simulación, respon
 | `MercadoPagoSimulado` (núcleo, sin FastAPI) | Guarda preferencias y pagos, crea un pago a partir del titular, arma la URL de vuelta y responde las operaciones de la API |
 | Transporte en proceso | Traduce `httpx.Request` ⇄ operaciones del núcleo, para `PasarelaMercadoPago` |
 | Router `/mercadopago-simulado` | La API por HTTP, la página de checkout, el endpoint que recibe el pago del formulario y la pantalla de resultado |
-| Página de checkout (HTML, CSS y JS estáticos) | El formulario, la validación de la tarjeta de prueba en el navegador y el envío del pago |
+| Página de checkout (HTML, CSS y JS estáticos) | El formulario, la validación del formato de la tarjeta en el navegador y el envío del pago |
 | Logo | Archivo estático tomado de los recursos de marca oficiales de Mercado Pago |
 
 ### 3.4 Pagar desde el formulario
 
-- **En el navegador:** el formulario valida que el número sea una tarjeta de prueba, que el vencimiento sea futuro y que estén todos los campos.
-- **Qué se envía:** `POST /mercadopago-simulado/checkout/{pref_id}/pagos` con **solo** el titular, la marca de la tarjeta (`master`, `visa`, `amex`, `debmaster`, `debvisa`) y los últimos 4 dígitos. **El número completo, el código y el vencimiento no salen del navegador.**
+- **En el navegador:** el formulario valida el formato de la tarjeta (sección 2.3) y que estén todos los campos.
+- **Qué se envía:** `POST /mercadopago-simulado/checkout/{pref_id}/pagos` con **solo** el titular, la marca de la tarjeta (`visa`, `master` o `amex`) y los últimos 4 dígitos. **El número completo, el código y el vencimiento no salen del navegador.**
 - **En el servidor:** el endpoint crea el pago con el resultado que corresponde al titular, con monto igual al total de la preferencia. Después redirige a la pantalla de resultado.
-- **La URL de vuelta** se arma con la `back_url` de la preferencia más `collection_id`, `collection_status`, `payment_id`, `status`, `external_reference`, `payment_type=credit_card` (o `debit_card`), `merchant_order_id`, `preference_id`, `site_id=MLA` y `processing_mode=aggregator`. Son los mismos parámetros que documenta Mercado Pago ([configurar back URLs](https://www.mercadopago.com.ar/developers/en/docs/checkout-pro-orders/web-integration/configure-back-urls)).
+- **La URL de vuelta** se arma con la `back_url` de la preferencia más `collection_id`, `collection_status`, `payment_id`, `status`, `external_reference`, `payment_type=credit_card`, `merchant_order_id`, `preference_id`, `site_id=MLA` y `processing_mode=aggregator`. Son los mismos parámetros que documenta Mercado Pago ([configurar back URLs](https://www.mercadopago.com.ar/developers/en/docs/checkout-pro-orders/web-integration/configure-back-urls)).
 - **`auto_return`:** si la preferencia lo pide y el pago fue aprobado, la pantalla de resultado vuelve sola al sitio a los pocos segundos, como el real.
 
 ### 3.5 Datos
@@ -122,28 +131,30 @@ La aplicación deja de usarla. Las pruebas que hoy la usan como doble (fixture `
 - La demo completa (aprobado y rechazado) funciona sin cuenta, sin credenciales y sin internet, salvo las fuentes y el calendario que el front ya carga desde CDN.
 - El checkout se parece al real: colores, orden de los campos, logo, textos y pantallas de resultado.
 - La API simulada respeta el contrato de la real, así que `PasarelaMercadoPago` no tiene ramas especiales para el modo simulado.
-- El modo real sigue funcionando igual cuando hay credenciales.
+- El código del modo real no se rompe: sus pruebas automatizadas siguen pasando.
 
 **No objetivos**
-- Inicio de sesión del comprador. El real lo pide para las cuentas de prueba; la simulación lo saltea para que la demo sea directa.
+- Configurar o probar el modo real con credenciales (decisión del grupo, por tiempo).
+- Inicio de sesión del comprador. El real lo pide para las cuentas de prueba; la simulación lo saltea para que la demo sea directa (decisión del grupo, por tiempo).
+- Comparar el número contra la lista de tarjetas de prueba: solo se valida el formato.
 - Cuotas, dinero en cuenta, Rapipago y Pago Fácil, notificaciones (webhooks) y devoluciones.
 - Hacer pasar la simulación por el sitio real de Mercado Pago.
 
 **Lo que no puede pasar**
-- Que la página simulada acepte o transmita una tarjeta real.
+- Que el número de tarjeta, el código o el vencimiento salgan del navegador o se guarden.
 - Que la página simulada no se distinga del sitio real: el aviso "Simulación · no se cobra dinero" está siempre visible.
 - Que el modo simulado se active con credenciales cargadas, o que el modo real se rompa.
 - Pruebas con fechas fijas, por ejemplo vencimientos de tarjeta escritos a mano.
 
 ## 5. Restricciones
 
-- **TDD con Red / Green / Refactor**, un commit por paso, como los ciclos 13 a 18. El núcleo, el transporte, la API y los endpoints del formulario se construyen desde pruebas. La página de checkout (JS) no tiene pruebas automatizadas, igual que el front del sitio. Sí se prueba que se sirva y que tenga el formulario.
+- **TDD con Red / Green / Refactor**, un commit por paso, como los ciclos 13 a 18. El núcleo, el transporte, la API y los endpoints del formulario se construyen desde pruebas. La página de checkout (JS) no tiene pruebas automatizadas, igual que el front del sitio: la validación de formato se prueba a mano en el navegador. Sí se prueba que la página se sirva y que tenga el formulario.
 - **Verificación con mutaciones** de las reglas nuevas (titular → resultado, monto, parámetros de vuelta, 401 sin token, 404 de pago inexistente, que no viaje el número de tarjeta), como en `CICLO_TDD.md`.
 - **Fechas dinámicas en las pruebas** ([decisión 16](../DECISIONES_DE_DISENO.md)).
 - **Estilo:** PEP 8 con Ruff (79 columnas). Los archivos existentes guardan CRLF: hay que conservarlo.
 - **Documentación:** actualizar `DECISIONES_DE_DISENO.md`, `CICLO_TDD.md`, `BACKLOG.md`, `README.md` (cómo hacer la demo) y `CONFIGURACION_CREDENCIALES.md` (qué modo se usa según el `.env`).
 
-## 6. Riesgos y temas para el modo real (fuera de este alcance)
+## 6. Riesgos y temas para el modo real (fuera de esta entrega)
 
 - La documentación de Wallet Brick de Mercado Pago pide no usar dominios locales (`localhost`, `127.0.0.1`) en las URLs de vuelta ([modo de apertura](https://www.mercadopago.com.ar/developers/en/docs/checkout-bricks/wallet-brick/advanced-features/opening-mode)). La de Checkout Pro no lo menciona. Hay que comprobarlo cuando se pruebe el modo real con credenciales. Si Mercado Pago rechaza la preferencia, hará falta una URL pública (por ejemplo, un túnel con ngrok). El modo simulado no tiene esta limitación.
 - **Logo:** se usa el de los recursos de marca que Mercado Pago ofrece para integraciones. Si no se consigue un archivo oficial, va el nombre "Mercado Pago" en texto, sin dibujar una imitación del logo.
