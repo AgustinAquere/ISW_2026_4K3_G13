@@ -4,11 +4,17 @@ import httpx
 import pytest
 
 from app.adaptadores.pasarela_pago import (
+    URL_PAGOS_MERCADO_PAGO,
     URL_PREFERENCIAS_MERCADO_PAGO,
     PasarelaMercadoPago,
 )
 from app.dominio.errores import PagoNoDisponibleError
-from app.dominio.modelos import Compra, MedioPago, TipoPase
+from app.dominio.modelos import (
+    Compra,
+    MedioPago,
+    PagoInformado,
+    TipoPase,
+)
 from tests.fechas import FECHA_VISITA
 
 URL_RETORNO = "http://127.0.0.1:8000/"
@@ -112,3 +118,93 @@ def test_si_mercado_pago_no_responde_se_informa_el_error():
 
     with pytest.raises(PagoNoDisponibleError):
         pasarela(sin_conexion).crear_pago(compra_con_tarjeta())
+
+
+# Vuelta automática al sitio: Mercado Pago solo la acepta con una URL
+# pública (https), no con la dirección local de desarrollo.
+
+
+def test_con_url_publica_vuelve_sola_al_sitio_al_aprobarse_el_pago():
+    api = MercadoPagoFalso()
+    cliente = httpx.Client(transport=httpx.MockTransport(api))
+    pasarela_publica = PasarelaMercadoPago(
+        "TEST-123", "https://ecoharmony.example/", cliente
+    )
+
+    pasarela_publica.crear_pago(compra_con_tarjeta())
+
+    preferencia = json.loads(api.solicitudes[0].content)
+    assert preferencia["auto_return"] == "approved"
+
+
+def test_con_url_local_no_se_pide_la_vuelta_automatica():
+    api = MercadoPagoFalso()
+
+    pasarela(api).crear_pago(compra_con_tarjeta())
+
+    preferencia = json.loads(api.solicitudes[0].content)
+    assert "auto_return" not in preferencia
+
+
+# Consulta del pago al volver del checkout (GET /v1/payments/{id}).
+
+
+class ApiDePagosFalsa:
+    """Responde como la consulta de pagos de Mercado Pago."""
+
+    def __init__(self, status_code=200, **cambios):
+        self.status_code = status_code
+        self.pago = {
+            "id": 123,
+            "status": "approved",
+            "external_reference": "7",
+            "transaction_amount": 15000.0,
+        } | cambios
+        self.solicitudes = []
+
+    def __call__(self, solicitud):
+        self.solicitudes.append(solicitud)
+        return httpx.Response(self.status_code, json=self.pago)
+
+
+def test_consulta_el_pago_aprobado_a_mercado_pago():
+    api = ApiDePagosFalsa()
+
+    pago = pasarela(api).consultar_pago("123")
+
+    (solicitud,) = api.solicitudes
+    assert solicitud.method == "GET"
+    assert str(solicitud.url) == f"{URL_PAGOS_MERCADO_PAGO}/123"
+    assert solicitud.headers["Authorization"] == "Bearer TEST-123"
+    assert pago == PagoInformado("123", True, 7, 15000)
+
+
+@pytest.mark.parametrize("estado", ["rejected", "pending", "in_process"])
+def test_un_pago_no_aprobado_se_informa_sin_aprobar(estado):
+    pago = pasarela(ApiDePagosFalsa(status=estado)).consultar_pago("123")
+
+    assert not pago.aprobado
+
+
+def test_un_pago_sin_referencia_no_corresponde_a_ninguna_compra():
+    api = ApiDePagosFalsa(external_reference=None)
+
+    pago = pasarela(api).consultar_pago("123")
+
+    assert pago.id_compra is None
+
+
+def test_si_no_se_puede_consultar_el_pago_se_informa_el_error():
+    with pytest.raises(PagoNoDisponibleError):
+        pasarela(ApiDePagosFalsa(status_code=404)).consultar_pago("123")
+
+
+def test_un_id_de_pago_que_no_es_numerico_no_se_consulta():
+    # Evita armar la URL de la API con texto arbitrario recibido del front.
+    api = ApiDePagosFalsa()
+
+    pago = pasarela(api).consultar_pago("../usuarios")
+
+    assert api.solicitudes == []
+    assert not pago.aprobado
+    assert pago.id_compra is None
