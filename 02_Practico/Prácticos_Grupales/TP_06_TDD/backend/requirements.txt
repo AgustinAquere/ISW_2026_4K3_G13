@@ -1,5 +1,7 @@
 fastapi
 uvicorn[standard]
-sqlalchemy
-pytest
+python-dotenv
 httpx
+pytest
+pytest-cov
+ruff
