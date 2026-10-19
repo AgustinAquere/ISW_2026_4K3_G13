@@ -77,7 +77,7 @@ class MercadoPagoSimulado:
 
     def pagar(self, id_preferencia, titular, marca, ultimos_digitos):
         preferencia = self._preferencia(id_preferencia)
-        if self._esta_pagada(id_preferencia):
+        if self.esta_pagada(id_preferencia):
             raise PreferenciaYaPagadaError()
         estado, detalle = RESULTADOS_POR_TITULAR.get(
             titular.strip().upper(), RESULTADO_POR_DEFECTO
@@ -135,7 +135,7 @@ class MercadoPagoSimulado:
             raise PreferenciaInexistenteError()
         return preferencia
 
-    def _esta_pagada(self, id_preferencia):
+    def esta_pagada(self, id_preferencia):
         return any(
             pago["status"] == "approved"
             for pago in self.pagos_de_preferencia(id_preferencia)

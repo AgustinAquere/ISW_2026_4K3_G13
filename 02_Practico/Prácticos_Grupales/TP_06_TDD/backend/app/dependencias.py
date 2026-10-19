@@ -16,6 +16,7 @@ from app.adaptadores.repositorios_sqlite import (
     RepositorioComprasSQLite,
     RepositorioUsuariosSQLite,
 )
+from app.mercado_pago_simulado.nucleo import MercadoPagoSimulado
 from app.servicios.compra_service import ServicioCompra
 
 RUTA_BACKEND = Path(__file__).resolve().parent.parent
@@ -58,6 +59,15 @@ def crear_notificador(configuracion):
         contrasena=configuracion.get("SMTP_CONTRASENA", ""),
         remitente=configuracion.get("SMTP_REMITENTE", usuario),
         logger=logger,
+    )
+
+
+@lru_cache
+def obtener_mercado_pago_simulado():
+    # Uno solo por proceso: guarda en memoria las preferencias y los pagos
+    # que comparten el checkout simulado y la pasarela.
+    return MercadoPagoSimulado(
+        os.environ.get("URL_PUBLICA", URL_PUBLICA_POR_DEFECTO)
     )
 
 
