@@ -208,3 +208,97 @@ def test_un_id_de_pago_que_no_es_numerico_no_se_consulta():
     assert api.solicitudes == []
     assert not pago.aprobado
     assert pago.id_compra is None
+
+
+def test_un_pago_rechazado_se_informa_como_rechazado():
+    pago = pasarela(ApiDePagosFalsa(status="rejected")).consultar_pago("123")
+
+    assert pago.rechazado
+    assert not pago.aprobado
+
+
+# Búsqueda de los pagos de una compra: cuando Mercado Pago se abre en otra
+# pestaña, el sitio no recibe el id del pago y lo busca por el número de
+# compra (external_reference).
+
+
+class BusquedaDePagosFalsa:
+    """Responde como GET /v1/payments/search de Mercado Pago."""
+
+    def __init__(self, *pagos, status_code=200):
+        self.pagos = list(pagos)
+        self.status_code = status_code
+        self.solicitudes = []
+
+    def __call__(self, solicitud):
+        self.solicitudes.append(solicitud)
+        return httpx.Response(
+            self.status_code,
+            json={
+                "paging": {"total": len(self.pagos)},
+                "results": self.pagos,
+            },
+        )
+
+
+def pago_de_mercado_pago(id_pago, estado, monto=15000.0, referencia="7"):
+    return {
+        "id": id_pago,
+        "status": estado,
+        "external_reference": referencia,
+        "transaction_amount": monto,
+    }
+
+
+def test_busca_los_pagos_de_la_compra_por_su_numero():
+    api = BusquedaDePagosFalsa(pago_de_mercado_pago(123, "approved"))
+
+    pago = pasarela(api).buscar_pago(7)
+
+    (solicitud,) = api.solicitudes
+    assert solicitud.method == "GET"
+    assert str(solicitud.url).startswith(f"{URL_PAGOS_MERCADO_PAGO}/search?")
+    assert solicitud.url.params["external_reference"] == "7"
+    assert solicitud.url.params["sort"] == "date_created"
+    assert solicitud.url.params["criteria"] == "desc"
+    assert solicitud.headers["Authorization"] == "Bearer TEST-123"
+    assert pago == PagoInformado("123", True, 7, 15000)
+
+
+def test_sin_pagos_la_busqueda_no_informa_ninguno():
+    assert pasarela(BusquedaDePagosFalsa()).buscar_pago(7) is None
+
+
+def test_si_hay_un_pago_aprobado_se_informa_ese_aunque_haya_otros():
+    api = BusquedaDePagosFalsa(
+        pago_de_mercado_pago(2, "rejected"),
+        pago_de_mercado_pago(1, "approved"),
+    )
+
+    assert pasarela(api).buscar_pago(7).id_pago == "1"
+
+
+def test_sin_pago_aprobado_se_informa_el_mas_reciente():
+    api = BusquedaDePagosFalsa(
+        pago_de_mercado_pago(2, "rejected"),
+        pago_de_mercado_pago(1, "pending"),
+    )
+
+    pago = pasarela(api).buscar_pago(7)
+
+    assert pago.id_pago == "2"
+    assert pago.rechazado
+
+
+def test_un_pago_pendiente_no_esta_aprobado_ni_rechazado():
+    api = BusquedaDePagosFalsa(pago_de_mercado_pago(1, "in_process"))
+
+    pago = pasarela(api).buscar_pago(7)
+
+    assert not pago.aprobado
+    assert not pago.rechazado
+
+
+def test_si_no_se_puede_buscar_el_pago_se_informa_el_error():
+    with pytest.raises(PagoNoDisponibleError):
+        pasarela(BusquedaDePagosFalsa(status_code=500)).buscar_pago(7)

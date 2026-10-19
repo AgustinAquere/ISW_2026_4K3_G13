@@ -155,3 +155,59 @@ def test_por_defecto_la_pasarela_usa_la_api_real():
     assert str(solicitudes[0].url) == (
         "https://api.mercadopago.com/checkout/preferences"
     )
+
+
+# Búsqueda de pagos por número de compra (GET /v1/payments/search).
+
+
+def test_la_api_busca_los_pagos_por_referencia(simulador):
+    datos = {
+        "items": [{"title": "a", "quantity": 1, "unit_price": 100}],
+        "external_reference": "7",
+        "back_urls": {"success": "http://sitio/", "failure": "http://sitio/"},
+    }
+    pref = simulador.crear_preferencia(datos)
+    rechazado = simulador.pagar(pref["id"], "OTHE", "visa", "3704")
+    aprobado = simulador.pagar(pref["id"], "APRO", "visa", "3704")
+
+    estado, cuerpo = responder_api(
+        simulador,
+        "GET",
+        "/v1/payments/search",
+        AUTORIZACION,
+        None,
+        {"external_reference": "7"},
+    )
+
+    assert estado == 200
+    assert cuerpo["paging"]["total"] == 2
+    # El más reciente primero, como con sort=date_created y criteria=desc.
+    assert [pago["id"] for pago in cuerpo["results"]] == [
+        aprobado["id"],
+        rechazado["id"],
+    ]
+
+
+def test_la_busqueda_de_otra_referencia_no_devuelve_pagos(simulador):
+    estado, cuerpo = responder_api(
+        simulador,
+        "GET",
+        "/v1/payments/search",
+        AUTORIZACION,
+        None,
+        {"external_reference": "99"},
+    )
+
+    assert estado == 200
+    assert cuerpo["results"] == []
+
+
+def test_la_pasarela_busca_el_pago_en_el_simulador(simulador):
+    pasarela = pasarela_simulada(simulador)
+    pasarela.crear_pago(compra_con_tarjeta())
+    (pref,) = simulador.preferencias_creadas()
+    pago = simulador.pagar(pref["id"], "APRO", "master", "0604")
+
+    informado = pasarela.buscar_pago(7)
+
+    assert informado == PagoInformado(str(pago["id"]), True, 7, 15000)
