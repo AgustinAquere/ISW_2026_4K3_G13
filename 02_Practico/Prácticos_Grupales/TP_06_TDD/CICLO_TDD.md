@@ -685,3 +685,18 @@ Las observaciones menores quedaron registradas y no se corrigieron en esta entre
 - Un JSON inválido en la API simulada da error 500.
 - Las rutas del simulador también se publican cuando se usa el Mercado Pago real.
 - Dos pagos simultáneos en el simulador.
+
+## 9. Ciclos 31 a 35: mail en HTML y registro simulado
+
+Estos ciclos se hicieron en las ramas `feat/pulido-ux-ui` y `feat/registro-simulado`. Usan la convención Conventional Commits del grupo: `test(...)` para el Red y `feat(...)`/`fix(...)` para el Green.
+
+| Ciclo | Qué | Red | Green | Pruebas |
+|---|---|---|---|---|
+| 31 | Versión HTML del mail con la estética de la pantalla de confirmación | `4a8933a` | `5b0550b` | 218 |
+| 32 | El logo va dentro del mensaje y no como adjunto | `c3cc6e6` | `268d5f8` | 219 |
+| 33 | El mail no lleva imágenes: Gmail mostraba el logo como adjunto aun marcado `inline` | `46c8da4` | `b432673` | 218 |
+| 34 | Medio de pago y detalle de cada entrada (edad y precio) con el total al final | `cf30145` | `c95daf1` | 224 |
+| 35 | Registro simulado sin contraseña (`POST /usuarios`, CP-38) | `6b86b4b` | `cc0f316` | 236 |
+
+**Ciclo 33:** reemplaza las dos pruebas del logo de los ciclos 31 y 32 por una que exige que el mail no tenga imágenes. El cambio de pantallas y el botón "Registrarme" son front y no tienen pruebas automatizadas.
+

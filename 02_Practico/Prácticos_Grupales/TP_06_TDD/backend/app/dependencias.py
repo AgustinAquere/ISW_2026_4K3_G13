@@ -96,16 +96,27 @@ def obtener_reloj():
 
 
 @lru_cache
-def obtener_servicio_compra():
+def obtener_conexion():
     # FastAPI atiende cada solicitud en un hilo distinto del que abrió la
     # conexión, por eso se habilita su uso desde otros hilos.
-    conexion = sqlite3.connect(RUTA_BASE_DE_DATOS, check_same_thread=False)
+    return sqlite3.connect(RUTA_BASE_DE_DATOS, check_same_thread=False)
+
+
+@lru_cache
+def obtener_usuarios():
+    # El mismo repositorio para el registro simulado y para la compra: un
+    # email recién registrado ya puede comprar.
+    return RepositorioUsuariosSQLite(
+        obtener_conexion(), usuarios_registrados(os.environ)
+    )
+
+
+@lru_cache
+def obtener_servicio_compra():
     return ServicioCompra(
         reloj=RelojSistema(),
-        usuarios=RepositorioUsuariosSQLite(
-            conexion, usuarios_registrados(os.environ)
-        ),
-        compras=RepositorioComprasSQLite(conexion),
+        usuarios=obtener_usuarios(),
+        compras=RepositorioComprasSQLite(obtener_conexion()),
         notificador=crear_notificador(os.environ),
         pasarela_pago=crear_pasarela_pago(os.environ),
     )
