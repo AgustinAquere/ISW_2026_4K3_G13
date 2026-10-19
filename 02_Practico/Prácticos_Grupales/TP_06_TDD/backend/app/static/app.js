@@ -319,7 +319,7 @@ function abrirDialogo({ titulo, mensaje, detalle = "", mail = null, urlPago = nu
   $("dialogo-mail").textContent = mail ? `Te enviamos un mail de confirmación a ${mail}.` : "";
   $("dialogo-pagar").hidden = !urlPago;
   if (urlPago) $("dialogo-pagar").href = urlPago;
-  $("dialogo-cerrar").textContent = urlPago ? "Pagar más tarde" : "Listo";
+  $("dialogo-cerrar").textContent = urlPago ? "Cancelar" : "Listo";
   $("dialogo-espera").hidden = true;
   $("dialogo-verificar").hidden = true;
   if (!$("dialogo").open) $("dialogo").showModal();
@@ -399,7 +399,7 @@ function esperarPago(compra) {
   $("dialogo-pagar").hidden = !compra.url_pago;
   if (compra.url_pago) $("dialogo-pagar").href = compra.url_pago;
   $("dialogo-pagar").textContent = "Abrir Mercado Pago de nuevo";
-  $("dialogo-cerrar").textContent = "Pagar más tarde";
+  $("dialogo-cerrar").textContent = "Cancelar";
   mostrarEspera(ESPERANDO_CONFIRMACION);
   $("dialogo-verificar").hidden = false;
   if (!$("dialogo").open) $("dialogo").showModal();
