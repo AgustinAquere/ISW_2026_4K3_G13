@@ -595,6 +595,8 @@ La base creada antes del ciclo 13 se actualizó sola con la columna del estado. 
 | 25 | `POST /compras/{id}/verificacion-de-pago` | `e173870` | `77bf5ab` | `dcb07df` | 198 |
 | 26 | Fecha del título del pago con palabras | `d8448eb` | `20debb4` | — | 199 |
 | 27 | El transporte en proceso atiende solo la API simulada | `221c189` | `0dd53dc` | — | 201 |
+| 28 | Referencia de pago única por compra (hallazgo de la revisión final) | `f987c3a` | `579ece0` | — | 207 |
+| 29 | Dos verificaciones simultáneas envían un solo mail (hallazgo de la revisión final) | `378e2c7`* | `36c5a4b` | — | 208 |
 
 **El front** se actualizó en un commit aparte (`fda1650`): el checkout se abre en otra pestaña y la pestaña del sitio espera el pago. **El ciclo 22 baja de 174 a 173 pruebas** porque borra las 3 de la pasarela simulada vieja y agrega 2.
 
@@ -658,3 +660,27 @@ La hizo un integrante con su cuenta, sus credenciales de prueba (`APP_USR-...`) 
 5. **La búsqueda por número de compra** (`GET /v1/payments/search?external_reference=7`) encontró el mismo pago aprobado. En la compra 6, que no se pagó, no encontró pagos.
 
 Falta repetir el flujo completo desde el front con el pago en otra pestaña.
+
+### 8.6 Revisión final de la rama
+
+Al terminar los ciclos, un revisor independiente revisó toda la rama. Encontró un problema crítico y dos importantes, que se corrigieron:
+
+1. **Crítico: un pago ajeno podía confirmar la compra (ciclo 28).**
+   - **Causa:** el pago se buscaba por el número de compra, que se repite si se borra la base o si otro integrante usa las mismas credenciales.
+   - **Red:** la prueba de punta a punta `test_cp37_un_pago_ajeno_con_el_mismo_numero_de_compra_no_la_confirma` crea con el simulador un pago aprobado de otra compra con el mismo número y total. Antes del arreglo, la compra quedaba `CONFIRMADA`.
+   - **Green:** cada compra con tarjeta tiene una referencia de pago única.
+   - **Aclaración sobre otra prueba del Red:** la prueba unitaria `test_cp37_un_pago_de_otra_compra_con_el_mismo_numero_no_la_confirma` ya pasaba antes del arreglo, pero solo porque comparaba un texto con un número. Por eso se agregó la de punta a punta.
+2. **Importante: dos verificaciones simultáneas enviaban dos mails (ciclo 29).**
+   - **Red:** `test_dos_verificaciones_al_mismo_tiempo_envian_un_solo_mail` lanza dos verificaciones en paralelo con un Mercado Pago lento: salían 2 mails.
+   - **Green:** un candado en `ServicioCompra`.
+3. **Importante: la espera del pago vivía solo en memoria.** Si se recargaba o cerraba la pestaña del sitio, la compra pagada quedaba pendiente. Se corrigió en el front (`localStorage`, commit `27171ca`), que no tiene pruebas automatizadas, y se corrigió la decisión 18, que lo describía de más.
+
+\* El commit Red del ciclo 29 se rehízo para conservar los fines de línea CRLF del archivo.
+
+Las observaciones menores quedaron registradas y no se corrigieron en esta entrega:
+- Una respuesta de Mercado Pago sin algún campo puede dar error 500.
+- La espera no se detiene al cerrar el diálogo.
+- Un reintento que queda pendiente no actualiza el texto.
+- Un JSON inválido en la API simulada da error 500.
+- Las rutas del simulador también se publican cuando se usa el Mercado Pago real.
+- Dos pagos simultáneos en el simulador.
