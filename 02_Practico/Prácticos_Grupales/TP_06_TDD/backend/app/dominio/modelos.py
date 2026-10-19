@@ -19,6 +19,16 @@ class EstadoCompra(str, Enum):
 
 
 @dataclass(frozen=True)
+class PagoInformado:
+    """Pago tal como lo informa la pasarela (Mercado Pago)."""
+
+    id_pago: str
+    aprobado: bool
+    id_compra: int | None
+    monto: int
+
+
+@dataclass(frozen=True)
 class SolicitudCompra:
     email_usuario: str
     fecha_visita: date

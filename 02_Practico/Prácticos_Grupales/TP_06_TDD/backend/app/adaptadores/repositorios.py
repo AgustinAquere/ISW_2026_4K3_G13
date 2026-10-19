@@ -23,6 +23,9 @@ class RepositorioComprasEnMemoria:
     def listar(self):
         return list(self._compras.values())
 
+    def actualizar_estado(self, compra):
+        self._compras[compra.id] = compra
+
     def entradas_compradas(self, email, fecha_visita):
         return sum(
             compra.cantidad

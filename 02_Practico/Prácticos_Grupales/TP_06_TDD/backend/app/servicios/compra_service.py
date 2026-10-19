@@ -1,5 +1,9 @@
 from app.dominio.calendario import validar_fecha_visita
-from app.dominio.errores import CompraInvalidaError, UsuarioNoRegistradoError
+from app.dominio.errores import (
+    CompraInvalidaError,
+    CompraNoEncontradaError,
+    UsuarioNoRegistradoError,
+)
 from app.dominio.modelos import Compra, EstadoCompra, MedioPago
 from app.dominio.precios import calcular_precio_entrada
 
@@ -31,6 +35,21 @@ class ServicioCompra:
         if compra.estado == EstadoCompra.PENDIENTE_DE_PAGO:
             compra.url_pago = self._pasarela_pago.crear_pago(compra)
         else:
+            self._notificador.enviar_confirmacion(compra)
+        return compra
+
+    def confirmar_pago(self, email_usuario, id_compra, id_pago):
+        compra = self._compras.obtener(id_compra)
+        if compra is None or compra.email_usuario != email_usuario:
+            raise CompraNoEncontradaError()
+        if compra.estado == EstadoCompra.CONFIRMADA:
+            return compra
+        pago = self._pasarela_pago.consultar_pago(id_pago)
+        if pago.id_compra != compra.id or pago.monto != compra.total:
+            raise CompraInvalidaError("El pago no corresponde a la compra")
+        if pago.aprobado:
+            compra.estado = EstadoCompra.CONFIRMADA
+            self._compras.actualizar_estado(compra)
             self._notificador.enviar_confirmacion(compra)
         return compra
 

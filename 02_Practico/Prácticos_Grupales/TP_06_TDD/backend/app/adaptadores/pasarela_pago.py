@@ -1,6 +1,9 @@
+from urllib.parse import urlencode
+
 import httpx
 
 from app.dominio.errores import PagoNoDisponibleError
+from app.dominio.modelos import PagoInformado
 
 URL_CHECKOUT_MERCADO_PAGO = (
     "https://www.mercadopago.com.ar/checkout/v1/redirect"
@@ -53,11 +56,23 @@ class PasarelaMercadoPago:
 
 
 class PasarelaMercadoPagoSimulada:
-    """Simula la creación de un pago en Mercado Pago y devuelve su URL."""
+    """Simula Mercado Pago: el pago vuelve al sitio aprobado (FAQ 4)."""
 
-    def __init__(self):
+    def __init__(self, url_retorno="/"):
+        self._url_retorno = url_retorno
         self.pagos_creados = []
 
     def crear_pago(self, compra):
         self.pagos_creados.append(compra)
-        return f"{URL_CHECKOUT_MERCADO_PAGO}?pref_id=SIMULADO-{compra.id}"
+        parametros = {
+            "collection_status": "approved",
+            "payment_id": f"SIMULADO-{compra.id}",
+            "external_reference": compra.id,
+        }
+        return f"{self._url_retorno}?{urlencode(parametros)}"
+
+    def consultar_pago(self, id_pago):
+        for compra in self.pagos_creados:
+            if id_pago == f"SIMULADO-{compra.id}":
+                return PagoInformado(id_pago, True, compra.id, compra.total)
+        return PagoInformado(id_pago, False, None, 0)
