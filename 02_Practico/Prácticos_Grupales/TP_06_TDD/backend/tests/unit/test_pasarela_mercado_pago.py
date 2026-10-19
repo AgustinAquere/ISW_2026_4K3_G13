@@ -1,5 +1,4 @@
 import json
-from datetime import date
 
 import httpx
 import pytest
@@ -10,6 +9,7 @@ from app.adaptadores.pasarela_pago import (
 )
 from app.dominio.errores import PagoNoDisponibleError
 from app.dominio.modelos import Compra, MedioPago, TipoPase
+from tests.fechas import FECHA_VISITA
 
 URL_RETORNO = "http://127.0.0.1:8000/"
 
@@ -17,7 +17,7 @@ URL_RETORNO = "http://127.0.0.1:8000/"
 def compra_con_tarjeta(**cambios):
     datos = {
         "email_usuario": "visitante@ecoharmony.com",
-        "fecha_visita": date(2026, 11, 15),
+        "fecha_visita": FECHA_VISITA,
         "cantidad": 2,
         "edades": [40, 8],
         "tipo_pase": TipoPase.REGULAR,

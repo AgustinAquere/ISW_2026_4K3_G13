@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -12,11 +10,9 @@ from app.adaptadores.repositorios import (
 from app.dependencias import obtener_reloj, obtener_servicio_compra
 from app.main import app
 from app.servicios.compra_service import ServicioCompra
+from tests.fechas import AHORA
 
 EMAIL_REGISTRADO = "visitante@ecoharmony.com"
-
-# Martes 10/11/2026 a las 10:00: el parque está abierto ese día.
-AHORA = datetime(2026, 11, 10, 10, 0)
 
 
 class MercadoPagoQueInforma:

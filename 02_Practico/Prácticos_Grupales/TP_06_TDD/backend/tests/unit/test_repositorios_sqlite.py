@@ -1,5 +1,4 @@
 import sqlite3
-from datetime import date
 
 import pytest
 
@@ -17,6 +16,7 @@ from app.dominio.modelos import (
 )
 from app.servicios.compra_service import ServicioCompra
 from tests.conftest import EMAIL_REGISTRADO
+from tests.fechas import FECHA_VISITA, OTRA_FECHA_VISITA
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def compra_nueva(**cambios):
     """Arma una compra válida; cada prueba cambia solo lo que evalúa."""
     datos = {
         "email_usuario": EMAIL_REGISTRADO,
-        "fecha_visita": date(2026, 11, 15),
+        "fecha_visita": FECHA_VISITA,
         "cantidad": 2,
         "edades": [40, 8],
         "tipo_pase": TipoPase.VIP,
@@ -117,8 +117,8 @@ def test_una_base_anterior_sin_estado_se_actualiza(conexion):
     conexion.execute(
         "INSERT INTO compras (email_usuario, fecha_visita, cantidad, edades, "
         "tipo_pase, medio_pago, total) VALUES "
-        "('visitante@ecoharmony.com', '2026-11-15', 1, '[30]', 'REGULAR', "
-        "'EFECTIVO', 10000)"
+        "(?, ?, 1, '[30]', 'REGULAR', 'EFECTIVO', 10000)",
+        (EMAIL_REGISTRADO, FECHA_VISITA.isoformat()),
     )
 
     compras = RepositorioComprasSQLite(conexion)
@@ -150,20 +150,16 @@ def test_entradas_compradas_suma_solo_las_del_usuario_y_la_fecha(conexion):
     compras = RepositorioComprasSQLite(conexion)
     compras.guardar(compra_nueva(cantidad=2, edades=[30, 30]))
     compras.guardar(compra_nueva(cantidad=3, edades=[30] * 3))
-    compras.guardar(compra_nueva(cantidad=4, fecha_visita=date(2026, 11, 17)))
+    compras.guardar(compra_nueva(cantidad=4, fecha_visita=OTRA_FECHA_VISITA))
     compras.guardar(compra_nueva(cantidad=5, email_usuario="otro@mail.com"))
 
-    assert (
-        compras.entradas_compradas(EMAIL_REGISTRADO, date(2026, 11, 15)) == 5
-    )
+    assert compras.entradas_compradas(EMAIL_REGISTRADO, FECHA_VISITA) == 5
 
 
 def test_sin_compras_para_la_fecha_hay_0_entradas_compradas(conexion):
     compras = RepositorioComprasSQLite(conexion)
 
-    assert (
-        compras.entradas_compradas(EMAIL_REGISTRADO, date(2026, 11, 15)) == 0
-    )
+    assert compras.entradas_compradas(EMAIL_REGISTRADO, FECHA_VISITA) == 0
 
 
 # Persistencia: el motivo de usar SQLite
@@ -201,7 +197,7 @@ def test_servicio_registra_la_compra_en_sqlite(
     compra = servicio.comprar(
         SolicitudCompra(
             email_usuario=EMAIL_REGISTRADO,
-            fecha_visita=date(2026, 11, 15),
+            fecha_visita=FECHA_VISITA,
             cantidad=2,
             edades=[25, 30],
             tipo_pase=TipoPase.REGULAR,
@@ -226,7 +222,7 @@ def test_servicio_confirma_el_pago_en_sqlite(
     compra = servicio.comprar(
         SolicitudCompra(
             email_usuario=EMAIL_REGISTRADO,
-            fecha_visita=date(2026, 11, 15),
+            fecha_visita=FECHA_VISITA,
             cantidad=2,
             edades=[25, 30],
             tipo_pase=TipoPase.REGULAR,
