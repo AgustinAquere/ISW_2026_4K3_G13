@@ -264,9 +264,62 @@ function mostrarCompra(compra) {
     mail: pendiente ? null : sesionEnMemoria,
     urlPago: pendiente ? compra.url_pago : null,
   });
+  compraEnEspera = pendiente ? compra : null;
+  $("dialogo-pagar").textContent = "Pagar con Mercado Pago";
 }
 
 $("dialogo-cerrar").addEventListener("click", () => $("dialogo").close());
+
+// Mercado Pago se abre en otra pestaña: esta pestaña pregunta al backend si
+// la compra ya se pagó, cada 5 segundos y al volver a mirarla.
+$("dialogo-pagar").target = "_blank";
+$("dialogo-pagar").rel = "noopener";
+
+let compraEnEspera = null;
+let temporizadorDePago = null;
+
+$("dialogo-pagar").addEventListener("click", () => {
+  if (!compraEnEspera) return;
+  $("dialogo-titulo").textContent = "Esperando tu pago en Mercado Pago…";
+  $("dialogo-mensaje").textContent =
+    "Completá el pago en la pestaña de Mercado Pago. Cuando termines, volvé a esta pestaña.";
+  $("dialogo-pagar").textContent = "Abrir Mercado Pago de nuevo";
+  clearInterval(temporizadorDePago);
+  temporizadorDePago = setInterval(verificarPago, 5000);
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && compraEnEspera) verificarPago();
+});
+
+async function verificarPago() {
+  const compra = compraEnEspera;
+  if (!compra) return;
+  try {
+    const respuesta = await fetch(`/compras/${compra.id}/verificacion-de-pago`, {
+      method: "POST",
+      headers: { "X-Usuario-Email": sesionEnMemoria },
+    });
+    const datos = await respuesta.json();
+    if (!respuesta.ok || compraEnEspera !== compra) return;
+    if (datos.pago === "aprobado") {
+      compraEnEspera = null;
+      clearInterval(temporizadorDePago);
+      abrirDialogo({
+        titulo: "¡Pago aprobado!",
+        mensaje: `${datos.mensaje}. Tus entradas están confirmadas.`,
+        detalle: `Compra n.º ${datos.id} · Total ${pesos.format(datos.total)}.`,
+        mail: sesionEnMemoria,
+      });
+    } else if (datos.pago === "rechazado") {
+      $("dialogo-titulo").textContent = "Pago rechazado";
+      $("dialogo-mensaje").textContent =
+        "Mercado Pago rechazó el pago. Podés intentar con otra tarjeta.";
+    }
+  } catch {
+    // Sin conexión: se vuelve a intentar en la próxima consulta.
+  }
+}
 
 // Vuelta desde Mercado Pago: el backend consulta el pago a Mercado Pago y, si
 // está aprobado, confirma la compra y envía el mail. El estado que trae la
