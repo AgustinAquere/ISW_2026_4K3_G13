@@ -11,6 +11,7 @@ from app.dominio.modelos import (
     Compra,
     EstadoCompra,
     MedioPago,
+    PagoInformado,
     SolicitudCompra,
     TipoPase,
 )
@@ -89,6 +90,18 @@ def test_obtener_conserva_el_estado_de_la_compra(conexion):
     )
 
     assert compras.obtener(compra.id).estado == EstadoCompra.PENDIENTE_DE_PAGO
+
+
+def test_actualizar_estado_guarda_el_nuevo_estado(conexion):
+    compras = RepositorioComprasSQLite(conexion)
+    compra = compras.guardar(
+        compra_nueva(estado=EstadoCompra.PENDIENTE_DE_PAGO)
+    )
+
+    compra.estado = EstadoCompra.CONFIRMADA
+    compras.actualizar_estado(compra)
+
+    assert compras.obtener(compra.id).estado == EstadoCompra.CONFIRMADA
 
 
 def test_una_base_anterior_sin_estado_se_actualiza(conexion):
@@ -197,3 +210,31 @@ def test_servicio_registra_la_compra_en_sqlite(
     )
 
     assert compras.obtener(compra.id) == compra
+
+
+def test_servicio_confirma_el_pago_en_sqlite(
+    conexion, reloj, notificador, mercado_pago
+):
+    compras = RepositorioComprasSQLite(conexion)
+    servicio = ServicioCompra(
+        reloj,
+        RepositorioUsuariosSQLite(conexion, [EMAIL_REGISTRADO]),
+        compras,
+        notificador,
+        mercado_pago,
+    )
+    compra = servicio.comprar(
+        SolicitudCompra(
+            email_usuario=EMAIL_REGISTRADO,
+            fecha_visita=date(2026, 11, 15),
+            cantidad=2,
+            edades=[25, 30],
+            tipo_pase=TipoPase.REGULAR,
+            medio_pago=MedioPago.TARJETA,
+        )
+    )
+    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+
+    servicio.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
+
+    assert compras.obtener(compra.id).estado == EstadoCompra.CONFIRMADA

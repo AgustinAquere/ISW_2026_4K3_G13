@@ -19,6 +19,21 @@ EMAIL_REGISTRADO = "visitante@ecoharmony.com"
 AHORA = datetime(2026, 11, 10, 10, 0)
 
 
+class MercadoPagoQueInforma:
+    """Doble de Mercado Pago: informa el pago que indica cada prueba."""
+
+    def __init__(self):
+        self.pago = None
+        self.consultados = []
+
+    def crear_pago(self, compra):
+        return f"https://www.mercadopago.com.ar/checkout?ref={compra.id}"
+
+    def consultar_pago(self, id_pago):
+        self.consultados.append(id_pago)
+        return self.pago
+
+
 class RelojFijo:
     """Reloj controlable para que las pruebas no dependan de la fecha real."""
 
@@ -52,6 +67,11 @@ def notificador():
 @pytest.fixture
 def pasarela_pago():
     return PasarelaMercadoPagoSimulada()
+
+
+@pytest.fixture
+def mercado_pago():
+    return MercadoPagoQueInforma()
 
 
 @pytest.fixture
