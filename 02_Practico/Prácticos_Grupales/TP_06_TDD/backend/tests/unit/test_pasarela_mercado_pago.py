@@ -345,3 +345,35 @@ def test_la_preferencia_usa_la_referencia_de_pago_de_la_compra():
 
     preferencia = json.loads(api.solicitudes[0].content)
     assert preferencia["external_reference"] == "ref-unica"
+
+
+# En modo prueba Mercado Pago solo acepta pagos de un comprador de prueba
+# ("Una de las partes con la que intentás hacer el pago es de prueba"): la
+# preferencia lleva su email para que el checkout lo traiga completado.
+
+EMAIL_COMPRADOR_PRUEBA = "TESTUSER123@testuser.com"
+
+
+def test_con_comprador_de_prueba_la_preferencia_lleva_su_email():
+    api = MercadoPagoFalso()
+    cliente = httpx.Client(transport=httpx.MockTransport(api))
+    pasarela_de_prueba = PasarelaMercadoPago(
+        "APP_USR-1",
+        URL_RETORNO,
+        cliente,
+        email_comprador_prueba=EMAIL_COMPRADOR_PRUEBA,
+    )
+
+    pasarela_de_prueba.crear_pago(compra_con_tarjeta())
+
+    preferencia = json.loads(api.solicitudes[0].content)
+    assert preferencia["payer"] == {"email": EMAIL_COMPRADOR_PRUEBA}
+
+
+def test_sin_comprador_de_prueba_la_preferencia_no_lleva_payer():
+    api = MercadoPagoFalso()
+
+    pasarela(api).crear_pago(compra_con_tarjeta())
+
+    preferencia = json.loads(api.solicitudes[0].content)
+    assert "payer" not in preferencia
