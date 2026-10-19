@@ -1,3 +1,6 @@
+import threading
+import time
+
 import pytest
 
 from app.adaptadores.repositorios import RepositorioUsuariosEnMemoria
@@ -17,7 +20,7 @@ from app.dominio.modelos import (
 )
 from app.dominio.precios import PRECIO_BASE
 from app.servicios.compra_service import ServicioCompra
-from tests.conftest import EMAIL_REGISTRADO
+from tests.conftest import EMAIL_REGISTRADO, MercadoPagoQueInforma
 from tests.fechas import (
     FECHA_VISITA,
     LUNES_PROXIMO,
@@ -580,3 +583,43 @@ def test_una_compra_sin_referencia_de_pago_usa_su_numero():
     )
 
     assert compra.referencia_externa() == "7"
+
+
+# 11. Verificaciones simultáneas: al volver a la pestaña del sitio pueden
+# llegar dos consultas a la vez (la del intervalo y la de visibilitychange),
+# y FastAPI las atiende en hilos distintos.
+
+
+class MercadoPagoLento(MercadoPagoQueInforma):
+    """Tarda en responder, como la API real: las consultas se pisan."""
+
+    def buscar_pago(self, referencia):
+        time.sleep(0.2)
+        return super().buscar_pago(referencia)
+
+
+def test_dos_verificaciones_al_mismo_tiempo_envian_un_solo_mail(
+    reloj, usuarios, compras, notificador
+):
+    mercado_pago = MercadoPagoLento()
+    servicio = ServicioCompra(
+        reloj, usuarios, compras, notificador, mercado_pago
+    )
+    compra = compra_con_tarjeta(servicio)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
+    hilos = [
+        threading.Thread(
+            target=servicio.verificar_pago, args=(EMAIL_REGISTRADO, compra.id)
+        )
+        for _ in range(2)
+    ]
+
+    for hilo in hilos:
+        hilo.start()
+    for hilo in hilos:
+        hilo.join()
+
+    assert compra.estado == EstadoCompra.CONFIRMADA
+    assert len(notificador.enviados) == 1
