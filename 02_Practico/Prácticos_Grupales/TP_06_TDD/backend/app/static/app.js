@@ -54,6 +54,9 @@ $("form-ingreso").addEventListener("submit", (evento) => {
 });
 
 $("cerrar-sesion").addEventListener("click", () => {
+  // La espera del pago es de la sesión que se cierra.
+  compraEnEspera = null;
+  clearInterval(temporizadorDePago);
   guardarSesion(null);
   mostrarPantalla();
 });
@@ -278,15 +281,62 @@ $("dialogo-pagar").rel = "noopener";
 let compraEnEspera = null;
 let temporizadorDePago = null;
 
-$("dialogo-pagar").addEventListener("click", () => {
-  if (!compraEnEspera) return;
+// La compra que espera el pago se guarda en el navegador: si la pestaña se
+// recarga o se cierra después de pagar, se vuelve a verificar al abrirla.
+const CLAVE_COMPRA_PENDIENTE = "ecoharmony.compraPendiente";
+
+function guardarCompraPendiente(compra) {
+  try {
+    if (compra) {
+      localStorage.setItem(
+        CLAVE_COMPRA_PENDIENTE,
+        JSON.stringify({ id: compra.id, url_pago: compra.url_pago, email: sesionEnMemoria }),
+      );
+    } else {
+      localStorage.removeItem(CLAVE_COMPRA_PENDIENTE);
+    }
+  } catch {
+    // Sin almacenamiento solo se verifica mientras la pestaña siga abierta.
+  }
+}
+
+function leerCompraPendiente() {
+  try {
+    const compra = JSON.parse(localStorage.getItem(CLAVE_COMPRA_PENDIENTE));
+    return compra && compra.email === sesionEnMemoria ? compra : null;
+  } catch {
+    return null;
+  }
+}
+
+function esperarPago(compra) {
+  compraEnEspera = compra;
+  guardarCompraPendiente(compra);
   $("dialogo-titulo").textContent = "Esperando tu pago en Mercado Pago…";
   $("dialogo-mensaje").textContent =
     "Completá el pago en la pestaña de Mercado Pago. Cuando termines, volvé a esta pestaña.";
+  $("dialogo-detalle").textContent = `Compra n.º ${compra.id}.`;
+  $("dialogo-mail").hidden = true;
+  $("dialogo-pagar").hidden = !compra.url_pago;
+  if (compra.url_pago) $("dialogo-pagar").href = compra.url_pago;
   $("dialogo-pagar").textContent = "Abrir Mercado Pago de nuevo";
+  $("dialogo-cerrar").textContent = "Pagar más tarde";
+  if (!$("dialogo").open) $("dialogo").showModal();
   clearInterval(temporizadorDePago);
   temporizadorDePago = setInterval(verificarPago, 5000);
+}
+
+$("dialogo-pagar").addEventListener("click", () => {
+  if (compraEnEspera) esperarPago(compraEnEspera);
 });
+
+// Al abrir la página, una compra que quedó esperando el pago se verifica.
+function retomarCompraPendiente() {
+  const compra = sesionEnMemoria && leerCompraPendiente();
+  if (!compra) return;
+  esperarPago(compra);
+  verificarPago();
+}
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && compraEnEspera) verificarPago();
@@ -304,6 +354,7 @@ async function verificarPago() {
     if (!respuesta.ok || compraEnEspera !== compra) return;
     if (datos.pago === "aprobado") {
       compraEnEspera = null;
+      guardarCompraPendiente(null);
       clearInterval(temporizadorDePago);
       abrirDialogo({
         titulo: "¡Pago aprobado!",
@@ -389,4 +440,7 @@ async function informarVueltaDeMercadoPago() {
 mostrarPantalla();
 dibujarEdades();
 iniciarCalendario();
+// Si la página se abre por la vuelta de Mercado Pago, esa vuelta ya verifica
+// el pago; si no, se retoma la compra que había quedado esperando.
+if (!window.location.search) retomarCompraPendiente();
 informarVueltaDeMercadoPago();

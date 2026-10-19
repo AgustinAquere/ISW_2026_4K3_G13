@@ -123,7 +123,9 @@ static/                 ← front: index.html, styles.css y app.js, servidos por
     - Ese endpoint usa `ServicioCompra.verificar_pago`, que busca los pagos de la compra en Mercado Pago (`GET /v1/payments/search?external_reference=<compra>`) y aplica las mismas reglas que `confirmar_pago`: pago de esa compra, por el total y aprobado. Entonces confirma la compra y envía el mail una sola vez.
     - La respuesta informa el pago como `aprobado`, `rechazado`, `pendiente` o `sin_pago`, y el front muestra "¡Pago aprobado!" con la cantidad de entradas y la fecha (criterio de aceptación) o el rechazo.
     - Se conserva la confirmación por la URL de vuelta (`POST /compras/{id}/pago`), por si se publica la aplicación en `https`.
-    - Además resuelve el caso de la decisión 14: si el usuario paga y no vuelve al sitio, la compra se confirma cuando abre de nuevo la pestaña del sitio.
+    - La compra que espera el pago se guarda en el navegador (`localStorage`, junto con el email de la sesión). Si la pestaña del sitio se recarga o se cierra después de pagar, al abrir el sitio de nuevo con la misma sesión la compra se vuelve a verificar. Así se cubre en parte el caso de la decisión 14. Si el usuario nunca vuelve a abrir el sitio en ese navegador, la compra queda pendiente: solo un webhook, que necesita una URL pública, lo resolvería del todo.
+    - Cada compra con tarjeta tiene una **referencia de pago única** (`referencia_pago`, un uuid guardado en la base), que se usa como `external_reference`. El número de compra no sirve: se repite si se borra la base o si otro integrante usa las mismas credenciales, y un pago ajeno con el mismo número y el mismo total confirmaba la compra (hallazgo de la revisión final). Las compras con tarjeta registradas antes de este cambio usan su número.
+    - Confirmar o verificar un pago se hace de a una solicitud por vez (`threading.Lock` en `ServicioCompra`): dos consultas simultáneas (el intervalo y `visibilitychange`) enviaban el mail dos veces.
 
 ## 4. Reglas definidas por el PO y supuestos
 
