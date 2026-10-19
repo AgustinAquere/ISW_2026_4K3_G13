@@ -27,7 +27,7 @@ class RepositorioComprasSQLite:
     # url_pago no se guarda: se genera después de registrar la compra.
     _COLUMNAS = (
         "id, email_usuario, fecha_visita, cantidad, edades, tipo_pase, "
-        "medio_pago, total, estado"
+        "medio_pago, total, estado, referencia_pago"
     )
 
     def __init__(self, conexion):
@@ -43,7 +43,8 @@ class RepositorioComprasSQLite:
                 "tipo_pase TEXT NOT NULL, "
                 "medio_pago TEXT NOT NULL, "
                 "total INTEGER NOT NULL, "
-                "estado TEXT NOT NULL DEFAULT 'CONFIRMADA')"
+                "estado TEXT NOT NULL DEFAULT 'CONFIRMADA', "
+                "referencia_pago TEXT)"
             )
             columnas = {
                 fila[1]
@@ -57,13 +58,18 @@ class RepositorioComprasSQLite:
                     "ALTER TABLE compras ADD COLUMN "
                     "estado TEXT NOT NULL DEFAULT 'CONFIRMADA'"
                 )
+            if "referencia_pago" not in columnas:
+                # Bases creadas antes de la referencia de pago única.
+                self._conexion.execute(
+                    "ALTER TABLE compras ADD COLUMN referencia_pago TEXT"
+                )
 
     def guardar(self, compra):
         with self._conexion:
             cursor = self._conexion.execute(
                 "INSERT INTO compras (email_usuario, fecha_visita, cantidad, "
-                "edades, tipo_pase, medio_pago, total, estado) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "edades, tipo_pase, medio_pago, total, estado, "
+                "referencia_pago) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     compra.email_usuario,
                     compra.fecha_visita.isoformat(),
@@ -73,6 +79,7 @@ class RepositorioComprasSQLite:
                     compra.medio_pago.value,
                     compra.total,
                     compra.estado.value,
+                    compra.referencia_pago,
                 ),
             )
         compra.id = cursor.lastrowid
@@ -118,6 +125,7 @@ class RepositorioComprasSQLite:
             pago,
             total,
             estado,
+            referencia_pago,
         ) = fila
         return Compra(
             id=id_compra,
@@ -129,4 +137,5 @@ class RepositorioComprasSQLite:
             medio_pago=MedioPago(pago),
             total=total,
             estado=EstadoCompra(estado),
+            referencia_pago=referencia_pago,
         )

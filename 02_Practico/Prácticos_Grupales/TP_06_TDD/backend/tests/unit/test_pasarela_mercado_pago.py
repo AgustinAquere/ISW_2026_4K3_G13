@@ -191,7 +191,7 @@ def test_un_pago_sin_referencia_no_corresponde_a_ninguna_compra():
 
     pago = pasarela(api).consultar_pago("123")
 
-    assert pago.id_compra is None
+    assert pago.referencia is None
 
 
 def test_si_no_se_puede_consultar_el_pago_se_informa_el_error():
@@ -207,7 +207,7 @@ def test_un_id_de_pago_que_no_es_numerico_no_se_consulta():
 
     assert api.solicitudes == []
     assert not pago.aprobado
-    assert pago.id_compra is None
+    assert pago.referencia is None
 
 
 def test_un_pago_rechazado_se_informa_como_rechazado():

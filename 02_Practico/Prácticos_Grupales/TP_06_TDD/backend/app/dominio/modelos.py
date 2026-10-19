@@ -25,7 +25,7 @@ class PagoInformado:
 
     id_pago: str
     aprobado: bool
-    id_compra: int | None
+    referencia: str | None
     monto: int
     rechazado: bool = False
 
@@ -52,6 +52,12 @@ class Compra:
     id: int | None = None
     url_pago: str | None = None
     estado: EstadoCompra = EstadoCompra.CONFIRMADA
+    referencia_pago: str | None = None
+
+    def referencia_externa(self):
+        # Las compras con tarjeta anteriores a la referencia única usan su
+        # número, para no perder los pagos que ya estaban en curso.
+        return self.referencia_pago or str(self.id)
 
     def resumen(self):
         palabra = "entrada" if self.cantidad == 1 else "entradas"

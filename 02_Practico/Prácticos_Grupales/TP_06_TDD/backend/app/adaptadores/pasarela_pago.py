@@ -42,7 +42,7 @@ class PasarelaMercadoPago:
                     "currency_id": "ARS",
                 }
             ],
-            "external_reference": str(compra.id),
+            "external_reference": compra.referencia_externa(),
             "back_urls": dict.fromkeys(
                 ("success", "failure", "pending"), self._url_retorno
             ),
@@ -77,14 +77,15 @@ class PasarelaMercadoPago:
             raise PagoNoDisponibleError() from error
         return _pago_informado(respuesta.json())
 
-    def buscar_pago(self, id_compra):
+    def buscar_pago(self, referencia):
         # Si el checkout se abrió en otra pestaña, el sitio no recibe el id
-        # del pago: lo busca por el número de compra (external_reference).
+        # del pago: lo busca por la referencia de la compra
+        # (external_reference).
         try:
             respuesta = self._cliente.get(
                 f"{self._url_api}/v1/payments/search",
                 params={
-                    "external_reference": str(id_compra),
+                    "external_reference": referencia,
                     "sort": "date_created",
                     "criteria": "desc",
                 },
@@ -123,11 +124,10 @@ def _fecha_con_palabras(fecha):
 
 
 def _pago_informado(datos):
-    referencia = datos.get("external_reference")
     return PagoInformado(
         id_pago=str(datos["id"]),
         aprobado=datos["status"] == "approved",
-        id_compra=int(referencia) if referencia else None,
+        referencia=datos.get("external_reference"),
         monto=round(datos["transaction_amount"]),
         rechazado=datos["status"] == "rejected",
     )

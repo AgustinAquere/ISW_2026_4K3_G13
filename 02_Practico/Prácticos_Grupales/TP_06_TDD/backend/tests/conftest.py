@@ -45,8 +45,8 @@ class MercadoPagoQueInforma:
         self.consultados.append(id_pago)
         return self.pago
 
-    def buscar_pago(self, id_compra):
-        self.buscados.append(id_compra)
+    def buscar_pago(self, referencia):
+        self.buscados.append(referencia)
         return self.pago
 
 
