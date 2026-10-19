@@ -59,7 +59,7 @@ static/                 ← front: index.html, styles.css y app.js, servidos por
 
 1. **Reglas de negocio en funciones puras (`calendario.py`, `precios.py`).** Se prueban sin servidor ni base de datos, las pruebas son rápidas (129 pruebas en unos pocos segundos) y cada regla tiene un único lugar donde cambiarla.
 
-2. **Servicio de aplicación (`ServicioCompra`) con inyección de dependencias.** El servicio recibe por constructor el reloj, los repositorios, el notificador y la pasarela de pago. Así, en las pruebas se reemplazan por dobles (`RelojFijo`, `NotificadorEnMemoria`, `PasarelaMercadoPagoSimulada`) y en producción por los adaptadores reales. Esta decisión surgió de TDD: para escribir la prueba del mail (CP-25) hacía falta observar el envío sin mandar un mail real.
+2. **Servicio de aplicación (`ServicioCompra`) con inyección de dependencias.** El servicio recibe por constructor el reloj, los repositorios, el notificador y la pasarela de pago. Así, en las pruebas se reemplazan por dobles (`RelojFijo`, `NotificadorEnMemoria`, `MercadoPagoQueInforma` o la pasarela contra el Mercado Pago simulado) y en producción por los adaptadores reales. Esta decisión surgió de TDD: para escribir la prueba del mail (CP-25) hacía falta observar el envío sin mandar un mail real.
 
 3. **Reloj inyectable.** Las reglas de fecha (día actual, 31 días, 17:30, feriados) dependen de "ahora". Con `datetime.now()` directo, las pruebas fallarían según el día en que se ejecuten. Con un reloj inyectado, cada prueba fija su propia fecha y hora; por ejemplo, para el 1 de enero y el 25 de diciembre se usa como "ahora" el 20/12/2026, así esas pruebas fallan por el feriado y no por superar los 31 días.
 
@@ -87,7 +87,8 @@ static/                 ← front: index.html, styles.css y app.js, servidos por
 
 10. **Mercado Pago Checkout Pro (`PasarelaMercadoPago`).** Crea una *preferencia* con un ítem por el total de la compra, `external_reference` con el id de la compra y `back_urls` que vuelven al front; devuelve el link de pago. Se usa la API REST con `httpx`, que ya estaba en el proyecto, en lugar del SDK de Mercado Pago, para no agregar una dependencia por una sola llamada.
     - Las pruebas reemplazan la red con `httpx.MockTransport`: verifican lo que se envía (token, total, moneda, referencia y URLs de retorno) sin credenciales ni conexión.
-    - Con credenciales de prueba (`TEST-...`) devuelve el checkout de prueba (`sandbox_init_point`); con credenciales productivas, el real (`init_point`).
+    - Con credenciales de prueba antiguas (`TEST-...`) devuelve el checkout de prueba (`sandbox_init_point`); con las demás, `init_point`. Las credenciales de prueba que Mercado Pago genera desde noviembre de 2025 empiezan con `APP_USR-` y funcionan con `init_point` y un comprador de prueba (probado con la cuenta de un integrante).
+    - El título del ítem lleva la fecha con palabras ("20 de octubre de 2026"): Mercado Pago le quita las barras al título y "20/10/2026" se veía "20102026".
     - Si Mercado Pago rechaza la solicitud o no responde, se lanza `PagoNoDisponibleError` y la API responde **502** con un mensaje claro. La compra se anula (decisión 15).
     - Una compra con tarjeta de $0 (todos los visitantes de hasta 3 años) no se envía a Mercado Pago, que no acepta cobros de $0.
     - Si la URL pública es `https`, la preferencia pide `auto_return: approved` para que Mercado Pago vuelva solo al sitio al aprobarse el pago. Con la dirección local (`http://127.0.0.1`) no se pide, porque Mercado Pago puede rechazar la preferencia por esa URL; el usuario vuelve con el botón "Volver al sitio".
@@ -107,12 +108,22 @@ static/                 ← front: index.html, styles.css y app.js, servidos por
     - Se confirma solo si el pago está aprobado, corresponde a esa compra (`external_reference`) y es por el total. Una compra de otro usuario responde 404, como si no existiera.
     - Confirmar es idempotente: si la compra ya está confirmada (por ejemplo, el usuario recarga la página), no se consulta otra vez ni se reenvía el mail.
     - Un id de pago que no es numérico no se consulta, para no armar la URL de la API de Mercado Pago con texto arbitrario recibido del front.
-    - Sin credenciales, `PasarelaMercadoPagoSimulada` devuelve una URL que vuelve al sitio con el pago aprobado (FAQ 4), así que el flujo completo se puede probar sin cuenta de Mercado Pago.
+    - Sin credenciales se usa el Mercado Pago simulado (decisión 17), así que el flujo se puede probar sin cuenta de Mercado Pago.
     - **No se implementó el webhook** (notificaciones IPN) de Mercado Pago: necesita una URL pública a la que Mercado Pago pueda llamar, que no existe en el entorno local. La consecuencia es que, si el usuario paga y cierra la pestaña sin volver al sitio, la compra queda pendiente. Con una URL pública, el webhook podría llamar al mismo `ServicioCompra.confirmar_pago`.
 
 15. **Si Mercado Pago no está disponible, la compra se anula.** Para tener el id que se envía como `external_reference`, la compra se registra antes de crear el pago. Si después Mercado Pago no responde, la compra queda **anulada**: no cuenta para el límite de 10 entradas por fecha (FAQ 27) y no se puede confirmar su pago. Antes de este cambio quedaba registrada sin link de pago y bloqueaba entradas del usuario.
 
 16. **Fechas de las pruebas calculadas a partir del día actual.** Las pruebas no usan fechas fijas (`tests/fechas.py`): una fecha fija termina quedando en el pasado o fuera de la ventana de 31 días y la prueba falla con el paso del tiempo, aunque el sistema no haya cambiado. Cada fecha se busca a partir de hoy según lo que necesita la prueba (el próximo lunes, el próximo 25 de diciembre, una fecha de visita abierta, etc.). Los días de apertura se escriben en ese módulo a partir del FAQ 1, sin usar el código de la aplicación, para no elegir los datos de prueba con la misma lógica que se prueba. Las reglas de fecha siguen recibiendo "ahora" por el reloj inyectado (decisión 3).
+
+17. **Mercado Pago simulado cuando no hay credenciales.** Sin `MP_ACCESS_TOKEN`, la aplicación usa un Mercado Pago simulado en memoria (`app/mercado_pago_simulado/`), con el mismo contrato que la API real: crear la preferencia, consultar un pago y buscar pagos. `PasarelaMercadoPago` es la misma clase en los dos modos y solo cambia la URL de la API (`url_api`). En modo simulado le habla al simulador con un transporte de `httpx` dentro del mismo proceso, que solo atiende `/mercadopago-simulado/api`. El titular de la tarjeta define el resultado, como con las tarjetas de prueba reales (`APRO` aprueba, `OTHE` rechaza, `CONT` deja pendiente). El diseño está en [docs/diseno-mercado-pago-simulado.md](docs/diseno-mercado-pago-simulado.md). La página de checkout simulada quedó mínima: el grupo priorizó la integración real en modo prueba.
+
+18. **El pago se hace en otra pestaña y el sitio lo verifica por el número de compra.** Mercado Pago solo vuelve solo al sitio (`auto_return`) si la URL de vuelta es pública y `https`. Con `http://127.0.0.1` o `http://localhost` la API respondió `400 auto_return invalid. back_url.success must be defined` (probado con las credenciales de prueba del grupo), y la pantalla de pago aprobado no muestra un botón para volver.
+    - El botón "Pagar con Mercado Pago" abre el checkout en una pestaña nueva, y la pestaña del sitio muestra "Esperando tu pago en Mercado Pago…".
+    - Mientras espera, la pestaña del sitio llama a `POST /compras/{id}/verificacion-de-pago` cada 5 segundos y cuando el usuario vuelve a mirarla.
+    - Ese endpoint usa `ServicioCompra.verificar_pago`, que busca los pagos de la compra en Mercado Pago (`GET /v1/payments/search?external_reference=<compra>`) y aplica las mismas reglas que `confirmar_pago`: pago de esa compra, por el total y aprobado. Entonces confirma la compra y envía el mail una sola vez.
+    - La respuesta informa el pago como `aprobado`, `rechazado`, `pendiente` o `sin_pago`, y el front muestra "¡Pago aprobado!" con la cantidad de entradas y la fecha (criterio de aceptación) o el rechazo.
+    - Se conserva la confirmación por la URL de vuelta (`POST /compras/{id}/pago`), por si se publica la aplicación en `https`.
+    - Además resuelve el caso de la decisión 14: si el usuario paga y no vuelve al sitio, la compra se confirma cuando abre de nuevo la pestaña del sitio.
 
 ## 4. Reglas definidas por el PO y supuestos
 

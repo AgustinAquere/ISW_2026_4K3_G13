@@ -43,8 +43,9 @@ Un buen Red falla **por el motivo correcto**: el mensaje de la falla describe el
 | 16 | Endpoint de confirmación y CP-01 completo | las 5 pruebas reciben `405 Method Not Allowed` | `POST /compras/{id}/pago` | control de sesión en la dependencia `usuario_en_sesion` |
 | 17 | Mail con el pago aprobado | 3 pruebas fallan: el mail no tiene número de compra y usa el link de pago para elegir el texto | el texto depende del medio de pago y del total | — |
 | 18 | CP-34: Mercado Pago no disponible | `EstadoCompra.ANULADA` inexistente y un reintento se rechazaba con "ya compraste 6" | la compra se anula y no cuenta para el límite | `_iniciar_pago` y `_cambiar_estado` |
+| 19 a 27 | Mercado Pago simulado y pago en otra pestaña (CP-35, CP-36) | ver sección 8 | ver sección 8 | ver sección 8 |
 
-Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8, 93 al cerrar el ciclo 12 y 129 al cerrar el ciclo 18). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, las de los ciclos 9 a 12, en la sección 6, y las de los ciclos 13 a 18, en la sección 7.
+Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8, 93 al cerrar el ciclo 12, 129 al cerrar el ciclo 18 y 201 al cerrar el ciclo 27). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, las de los ciclos 9 a 12, en la sección 6, las de los ciclos 13 a 18, en la sección 7, y las de los ciclos 19 a 27, en la sección 8.
 
 Las secciones 3 a 6 citan fechas puntuales (por ejemplo, "el 09/11/2026") porque registran cómo eran las pruebas en ese momento. Desde el refactor de la sección 7.2, las pruebas calculan sus fechas a partir del día en que se ejecutan.
 
@@ -570,3 +571,90 @@ Con la aplicación levantada y sin credenciales (Mercado Pago y mail simulados),
 5. Una compra en efectivo quedó confirmada y envió el mail en el momento.
 
 La base creada antes del ciclo 13 se actualizó sola con la columna del estado. La prueba con Mercado Pago (modo prueba) y Gmail reales se hace siguiendo [CONFIGURACION_CREDENCIALES.md](CONFIGURACION_CREDENCIALES.md).
+
+## 8. Ciclos 19 a 27: Mercado Pago simulado y pago en otra pestaña
+
+### 8.1 Contexto
+
+- **Ciclos 19 a 22:** siguen el plan [docs/plan-mercado-pago-simulado.md](docs/plan-mercado-pago-simulado.md). Construyen un Mercado Pago simulado que responde con el mismo contrato que la API real, para usarlo cuando no hay credenciales.
+- **Integración real, en modo prueba:** a mitad del plan el grupo decidió priorizarla y la probó con la cuenta de un integrante.
+- **Mercado Pago no vuelve solo a una dirección local:** al crear una preferencia con `auto_return` y `back_urls` en `http://127.0.0.1` o `http://localhost`, la API respondió `400 auto_return invalid. back_url.success must be defined`. Con una URL `https` respondió `201`.
+- **La solución:** el checkout se abre en otra pestaña, y la pestaña del sitio le pregunta al backend si la compra ya se pagó. El backend busca el pago en Mercado Pago por el número de compra (ciclos 23 a 25).
+- **Lo que queda en pausa:** la página de checkout simulada (Tarea 5 del plan) queda mínima.
+
+### 8.2 Commits de cada ciclo
+
+| Ciclo | Qué | Red | Green | Refactor | Pruebas |
+|---|---|---|---|---|---|
+| 19 | Núcleo del simulador (preferencias, pagos, titular → resultado, URL de vuelta) | `6010ec3` | `e237371` | — | 149 |
+| 20 | API simulada con el contrato real y `url_api` en `PasarelaMercadoPago` | `d86c669` | `840e6ee` | — | 160 |
+| 21 | Rutas del checkout simulado (datos, pago del formulario, API por HTTP) | `0558456` | `4ae2d22` | — | 174 |
+| 22 | Sin credenciales, la aplicación usa el simulador | `e4fba59` | `bc95775` | — | 173 |
+| 23 | Buscar los pagos de una compra (`GET /v1/payments/search`) | `2fc2fe0` | `d134aaf` | — | 183 |
+| 24 | `ServicioCompra.verificar_pago` | `3c874c3` | `23e50ba` | (en el Green) | 190 |
+| 25 | `POST /compras/{id}/verificacion-de-pago` | `e173870` | `77bf5ab` | `dcb07df` | 198 |
+| 26 | Fecha del título del pago con palabras | `d8448eb` | `20debb4` | — | 199 |
+| 27 | El transporte en proceso atiende solo la API simulada | `221c189` | `0dd53dc` | — | 201 |
+
+**El front** se actualizó en un commit aparte (`fda1650`): el checkout se abre en otra pestaña y la pestaña del sitio espera el pago. **El ciclo 22 baja de 174 a 173 pruebas** porque borra las 3 de la pasarela simulada vieja y agrega 2.
+
+### 8.3 Tipos de Red y desvíos
+
+**Tipos de Red:**
+- **Por importación (ciclos 19 a 22):** el módulo o la función todavía no existían.
+- **Por comportamiento:** en el ciclo 23, `buscar_pago` no existía como método; en el 24, `verificar_pago`; en el 25, el endpoint respondía 405; en el 26, el título usaba barras; en el 27, el transporte respondía 200 a la URL real.
+- **En el ciclo 22 el Red falla en una sola prueba:** `crear_pasarela_pago` no recibía el simulador. El resto de las pruebas migradas ya pasaba, porque el `conftest` usaba el simulador de los ciclos 19 a 21.
+
+**Desvíos:**
+- **Ruff en los Red de los ciclos 19 y 20:** marcó el orden de las importaciones porque el módulo nuevo todavía no existía y lo tomó como externo. Se commiteó el Red así y el aviso desapareció en el Green.
+- **Ciclo 23:** una prueba anterior (`test_la_pasarela_informa_el_pago_del_simulador[OTHE]`) esperaba el pago sin el campo nuevo `rechazado`. Se actualizó en el Green, como en el ciclo 14.
+- **Ciclo 24:** el Green extrajo directamente `_compra_con_pago_pendiente` y `_aplicar_pago`, compartidos con `confirmar_pago`, en lugar de duplicar la lógica y refactorizar después.
+
+### 8.4 Verificación con mutaciones
+
+Se aplicaron 23 mutaciones de los ciclos 19 a 27, con la misma técnica que en las secciones 3 a 7.
+
+**Dos sobrevivieron en la primera ronda:**
+- "La pasarela ignora `url_api`".
+- "Sin credenciales no se usa la URL del simulador".
+
+En los dos casos, el transporte en proceso respondía a cualquier dirección. El **ciclo 27** lo corrigió: ahora el transporte solo atiende `/mercadopago-simulado/api`. En la segunda ronda, **las 23 se detectaron:**
+
+| Ciclo | Mutación | Pruebas que fallan |
+|---|---|---|
+| 19 | `APRO` da rechazado | 15 pruebas (por ejemplo, `test_el_titular_define_el_resultado[APRO...]`) |
+| 19 | Un titular desconocido queda aprobado | `test_el_titular_define_el_resultado[JUAN PEREZ...]` |
+| 19 | No se normaliza el titular | `test_el_titular_se_compara_sin_mayusculas_ni_espacios` |
+| 19 | El total ignora la cantidad | `test_el_total_suma_precio_por_cantidad` |
+| 19 | La vuelta usa siempre `success` | `test_la_url_de_vuelta_usa_la_back_url_del_resultado[OTHE/CONT]` |
+| 19 | Sin control de preferencia ya pagada | `test_una_preferencia_aprobada_no_acepta_otro_pago`, entre otras |
+| 20 | Sin control del token | `test_sin_token_la_api_responde_401`, entre otras |
+| 20 | Un pago inexistente responde 200 | `test_un_pago_inexistente_responde_404` |
+| 20 | La pasarela ignora `url_api` | 21 pruebas (después del ciclo 27) |
+| 21 | Se acepta el número de tarjeta en el pago | `test_el_numero_de_tarjeta_no_se_acepta_en_el_pago` |
+| 21 | Preferencia ya pagada responde 404 en lugar de 409 | `test_pagar_dos_veces_una_preferencia_aprobada_responde_409` |
+| 21 | Se ignora `auto_return` | `test_con_auto_return_solo_un_pago_aprobado_vuelve_solo[APRO]` |
+| 22 | Sin credenciales no se usa la URL del simulador | `test_sin_access_token_se_usa_el_mercado_pago_simulado` (después del ciclo 27) |
+| 23 | La búsqueda no filtra por referencia | `test_la_busqueda_de_otra_referencia_no_devuelve_pagos` |
+| 23 | Se informa el más reciente aunque haya uno aprobado | `test_si_hay_un_pago_aprobado_se_informa_ese_aunque_haya_otros` |
+| 23 | Sin pagos se informa un pago vacío | `test_sin_pagos_la_busqueda_no_informa_ninguno` |
+| 23 | `rechazado` siempre falso | `test_un_pago_rechazado_se_informa_como_rechazado`, entre otras |
+| 23 | El simulador ordena del más viejo al más nuevo | `test_la_api_busca_los_pagos_por_referencia` |
+| 24 | Verificar no controla el monto | `test_verificar_un_pago_por_otro_monto_es_rechazado` |
+| 24 | Verificar busca aunque la compra esté confirmada | `test_verificar_una_compra_ya_confirmada_no_busca_ni_reenvia_el_mail` |
+| 24 | Verificar acepta la compra de otro usuario | `test_verificar_el_pago_de_una_compra_de_otro_usuario_es_rechazado`, entre otras |
+| 25 | Un pago rechazado se informa como pendiente | `test_api_verificacion_informa_el_pago_no_aprobado[OTHE-rechazado]` |
+| 25 | Sin pago se informa como pendiente | `test_api_verificacion_sin_pago_todavia` |
+| 26 | La fecha del título vuelve a llevar barras | `test_el_titulo_del_pago_escribe_la_fecha_con_palabras` |
+
+### 8.5 Prueba con el Mercado Pago real (modo prueba)
+
+La hizo un integrante con su cuenta, sus credenciales de prueba (`APP_USR-...`) y un comprador de prueba:
+
+1. Una **compra en efectivo** envió el mail real por Gmail (SMTP), sin errores.
+2. Una **compra con tarjeta** creó la preferencia en Mercado Pago, que aceptó la URL de vuelta local sin `auto_return`, y devolvió el `init_point`.
+3. **El pago con la tarjeta de prueba y el titular `APRO`** quedó aprobado (operación 183951332111). Mercado Pago no volvió solo al sitio porque la URL era local.
+4. **`POST /compras/7/pago` con ese id de pago:** el backend lo consultó en Mercado Pago, confirmó la compra y envió el mail de pago aprobado.
+5. **La búsqueda por número de compra** (`GET /v1/payments/search?external_reference=7`) encontró el mismo pago aprobado. En la compra 6, que no se pagó, no encontró pagos.
+
+Falta repetir el flujo completo desde el front con el pago en otra pestaña.

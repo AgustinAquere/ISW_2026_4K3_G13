@@ -2,6 +2,8 @@
 
 TP 6 — TDD · Ingeniería y Calidad de Software · UTN FRC · 4K3 · Grupo 13 · 19/10/2026
 
+> **Estado (19/10/2026):** las Tareas 1 a 4 del [plan](plan-mercado-pago-simulado.md) están hechas (ciclos 19 a 22): el núcleo, la API, las rutas y la conexión con la aplicación. La página de checkout (Tarea 5) quedó mínima, porque el grupo priorizó la integración con el Mercado Pago real en modo prueba. Con esa integración, el pago se abre en otra pestaña y el sitio lo verifica por el número de compra (decisión 18 de [DECISIONES_DE_DISENO.md](../DECISIONES_DE_DISENO.md)).
+
 ## 1. Para qué
 
 El grupo tiene que mostrarle el TP al profesor **sin una cuenta real de Mercado Pago**. En esa demo el profesor toca "Pagar con Mercado Pago", completa una tarjeta, el pago se aprueba y vuelve al sitio, donde la compra queda confirmada y se envía el mail. También se tiene que poder mostrar un **pago rechazado** y cómo reacciona el sitio.

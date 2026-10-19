@@ -99,7 +99,7 @@ curl -X POST http://127.0.0.1:8000/compras \
   -d '{"fecha_visita": "AAAA-MM-DD", "cantidad": 2, "edades": [40, 8], "tipo_pase": "REGULAR", "medio_pago": "TARJETA"}'
 ```
 
-La fecha de visita debe estar entre hoy y los próximos 31 días, y no puede ser lunes ni feriado de cierre: `GET /fechas-disponibles` lista las fechas válidas. Con tarjeta, la compra queda pendiente de pago; al volver de Mercado Pago, el front confirma el pago con `POST /compras/{id}/pago` y recién entonces se envía el mail.
+La fecha de visita debe estar entre hoy y los próximos 31 días, y no puede ser lunes ni feriado de cierre: `GET /fechas-disponibles` lista las fechas válidas. Con tarjeta, la compra queda pendiente de pago y el checkout de Mercado Pago se abre en otra pestaña. La pestaña del sitio consulta `POST /compras/{id}/verificacion-de-pago` hasta que el pago se aprueba; recién entonces se confirma la compra y se envía el mail. Sin `MP_ACCESS_TOKEN`, la aplicación usa un Mercado Pago simulado (ver `DECISIONES_DE_DISENO.md`, decisiones 17 y 18).
 
 ## Ejecutar las pruebas
 
