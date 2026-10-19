@@ -26,6 +26,17 @@ from app.servicios.compra_service import ServicioCompra
 router = APIRouter()
 
 
+def usuario_en_sesion(
+    x_usuario_email: Annotated[str | None, Header()] = None,
+):
+    # Sesión simulada (FAQ 19): la cabecera representa al usuario logueado.
+    if x_usuario_email is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Debe iniciar sesión"
+        )
+    return x_usuario_email
+
+
 @router.post(
     "/compras",
     response_model=CompraResponse,
@@ -34,14 +45,10 @@ router = APIRouter()
 def comprar_entradas(
     compra: CompraRequest,
     servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
-    x_usuario_email: Annotated[str | None, Header()] = None,
+    email_usuario: Annotated[str, Depends(usuario_en_sesion)],
 ):
-    if x_usuario_email is None:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, "Debe iniciar sesión"
-        )
     solicitud = SolicitudCompra(
-        email_usuario=x_usuario_email, **compra.model_dump()
+        email_usuario=email_usuario, **compra.model_dump()
     )
     try:
         resultado = servicio.comprar(solicitud)
@@ -65,15 +72,11 @@ def confirmar_pago(
     id_compra: int,
     confirmacion: ConfirmacionPagoRequest,
     servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
-    x_usuario_email: Annotated[str | None, Header()] = None,
+    email_usuario: Annotated[str, Depends(usuario_en_sesion)],
 ):
-    if x_usuario_email is None:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, "Debe iniciar sesión"
-        )
     try:
         compra = servicio.confirmar_pago(
-            x_usuario_email, id_compra, confirmacion.id_pago
+            email_usuario, id_compra, confirmacion.id_pago
         )
     except CompraNoEncontradaError as error:
         raise HTTPException(
