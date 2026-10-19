@@ -1,7 +1,16 @@
 import smtplib
 from email.message import EmailMessage
+from email.utils import make_msgid
+from html import escape
+from pathlib import Path
+from string import Template
 
 from app.dominio.modelos import MedioPago
+
+RUTA_APP = Path(__file__).resolve().parent.parent
+PLANTILLA_HTML = RUTA_APP / "plantillas" / "mail_confirmacion.html"
+# Gmail no muestra SVG: el logo del parque va como PNG dentro del mail.
+LOGO_PNG = RUTA_APP / "static" / "logo-ecoharmony.png"
 
 
 class NotificadorEnMemoria:
@@ -55,6 +64,17 @@ class NotificadorSMTP:
         mensaje["To"] = compra.email_usuario
         mensaje["Subject"] = "EcoHarmony Park: Confirmación de compra"
         mensaje.set_content(_cuerpo_del_mail(compra))
+        cid_logo = make_msgid(domain="ecoharmony.park")
+        mensaje.add_alternative(
+            _cuerpo_html(compra, cid_logo.strip("<>")), subtype="html"
+        )
+        mensaje.get_payload()[1].add_related(
+            LOGO_PNG.read_bytes(),
+            maintype="image",
+            subtype="png",
+            cid=cid_logo,
+            filename="logo-ecoharmony.png",
+        )
         try:
             with self._smtp(self._host, self._puerto, timeout=10) as servidor:
                 servidor.starttls()
@@ -85,4 +105,39 @@ def _cuerpo_del_mail(compra):
         f"{pago}\n\n"
         f"Tus entradas se verifican al ingresar al parque.\n"
         f"EcoHarmony Park"
+    )
+
+
+def _datos_del_pago(compra):
+    """Título, etiqueta del total y aviso de pago, como en el sitio."""
+    if compra.total == 0:
+        return "¡Compra confirmada!", "Total", "Tu compra no tiene costo."
+    if compra.medio_pago == MedioPago.TARJETA:
+        return "¡Pago aprobado!", "Total pagado", ""
+    return (
+        "¡Compra confirmada!",
+        "Total a pagar",
+        "Pagás en la boletería del parque el día de tu visita.",
+    )
+
+
+def _cuerpo_html(compra, cid_logo):
+    titulo, etiqueta_total, pago = _datos_del_pago(compra)
+    bloque_pago = (
+        '<p style="margin:16px 0 0;padding:10px 12px;'
+        'border-left:4px solid #6a994e;text-align:left;font-weight:700;">'
+        f"{escape(pago)}</p>"
+        if pago
+        else ""
+    )
+    plantilla = Template(PLANTILLA_HTML.read_text(encoding="utf-8"))
+    return plantilla.substitute(
+        titulo=escape(titulo),
+        resumen=escape(compra.resumen()),
+        numero=compra.id,
+        pase="VIP" if compra.tipo_pase.value == "VIP" else "Regular",
+        etiqueta_total=escape(etiqueta_total),
+        total=escape(f"${compra.total:,}".replace(",", ".")),
+        bloque_pago=bloque_pago,
+        cid_logo=escape(cid_logo),
     )
