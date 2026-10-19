@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -37,6 +37,25 @@ class CompraResponse(BaseModel):
             url_pago=compra.url_pago,
             estado=compra.estado,
             mensaje=compra.resumen(),
+        )
+
+
+class VerificacionPagoResponse(CompraResponse):
+    pago: Literal["aprobado", "rechazado", "pendiente", "sin_pago"]
+
+    @classmethod
+    def desde_verificacion(cls, compra, pago):
+        if compra.estado == EstadoCompra.CONFIRMADA:
+            estado_del_pago = "aprobado"
+        elif pago is None:
+            estado_del_pago = "sin_pago"
+        elif pago.rechazado:
+            estado_del_pago = "rechazado"
+        else:
+            estado_del_pago = "pendiente"
+        return cls(
+            **CompraResponse.desde_compra(compra).model_dump(),
+            pago=estado_del_pago,
         )
 
 
