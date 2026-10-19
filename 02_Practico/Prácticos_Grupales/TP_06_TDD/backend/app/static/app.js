@@ -70,22 +70,63 @@ function mostrarPagoAprobado(compra) {
   });
 }
 
-$("form-ingreso").addEventListener("submit", (evento) => {
-  evento.preventDefault();
+// El email se guarda en minúsculas, igual que lo registra el backend.
+function emailIngresado() {
   const campo = $("email");
   if (!campo.value.trim() || !campo.checkValidity()) {
     $("error-ingreso").textContent = "Ingresá un email válido.";
-    return;
+    return null;
   }
   $("error-ingreso").textContent = "";
-  guardarSesion(campo.value.trim());
+  return campo.value.trim().toLowerCase();
+}
+
+// Ingresar no valida el email: la compra lo valida en el backend y rechaza
+// a quien no está registrado (CP-07).
+$("form-ingreso").addEventListener("submit", (evento) => {
+  evento.preventDefault();
+  const email = emailIngresado();
+  if (!email) return;
+  $("aviso-registro").hidden = true;
+  guardarSesion(email);
   mostrarPantalla();
+});
+
+// Registro simulado, sin contraseña (el registro real es otra User Story).
+$("registrarme").addEventListener("click", async () => {
+  const email = emailIngresado();
+  if (!email) return;
+  const boton = $("registrarme");
+  boton.disabled = true;
+  try {
+    const respuesta = await fetch("/usuarios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (respuesta.status === 201) {
+      guardarSesion(email);
+      mostrarPantalla();
+      $("aviso-registro").textContent = `Te registraste con ${email}. Ya podés comprar entradas.`;
+      $("aviso-registro").hidden = false;
+    } else if (respuesta.status === 409) {
+      $("error-ingreso").textContent = "Ese email ya está registrado: tocá Ingresar.";
+    } else {
+      $("error-ingreso").textContent = "Ingresá un email válido.";
+    }
+  } catch {
+    $("error-ingreso").textContent = "No se pudo conectar con el servidor. Intentá de nuevo.";
+  } finally {
+    boton.disabled = false;
+  }
 });
 
 $("cerrar-sesion").addEventListener("click", () => {
   // La espera del pago es de la sesión que se cierra.
   compraEnEspera = null;
   clearInterval(temporizadorDePago);
+  $("error-compra").textContent = "";
+  $("aviso-registro").hidden = true;
   guardarSesion(null);
   mostrarPantalla();
 });
@@ -255,7 +296,9 @@ $("form-compra").addEventListener("submit", async (evento) => {
       $("error-compra").textContent = "Revisá los datos ingresados.";
     } else if (respuesta.status === 401) {
       $("error-compra").textContent =
-        `${datos.detail}. Tocá "Cambiar" para ingresar con otro email.`;
+        datos.detail === "Usuario no registrado"
+          ? `${sesionEnMemoria} no está registrado: solo los usuarios registrados pueden comprar. Tocá "Cambiar" para registrarlo.`
+          : `${datos.detail}. Tocá "Cambiar" para ingresar con otro email.`;
     } else {
       $("error-compra").textContent = datos.detail;
     }

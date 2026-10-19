@@ -353,6 +353,12 @@ a:focus-visible,
 .cartel-registro p { margin: 0; }
 .cartel-registro p + p { margin-top: 6px; }
 
+.cartel-registro .aclaracion {
+  margin-top: 10px;
+  color: var(--gris);
+  font-size: 0.85rem;
+}
+
 .aviso-mail {
   padding: 10px 12px;
   border-radius: 10px;
