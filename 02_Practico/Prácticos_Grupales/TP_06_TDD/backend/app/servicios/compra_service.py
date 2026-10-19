@@ -34,12 +34,7 @@ class ServicioCompra:
         )
         self._compras.guardar(compra)
         if compra.estado == EstadoCompra.PENDIENTE_DE_PAGO:
-            try:
-                compra.url_pago = self._pasarela_pago.crear_pago(compra)
-            except PagoNoDisponibleError:
-                compra.estado = EstadoCompra.ANULADA
-                self._compras.actualizar_estado(compra)
-                raise
+            self._iniciar_pago(compra)
         else:
             self._notificador.enviar_confirmacion(compra)
         return compra
@@ -56,10 +51,22 @@ class ServicioCompra:
         if pago.id_compra != compra.id or pago.monto != compra.total:
             raise CompraInvalidaError("El pago no corresponde a la compra")
         if pago.aprobado:
-            compra.estado = EstadoCompra.CONFIRMADA
-            self._compras.actualizar_estado(compra)
+            self._cambiar_estado(compra, EstadoCompra.CONFIRMADA)
             self._notificador.enviar_confirmacion(compra)
         return compra
+
+    def _iniciar_pago(self, compra):
+        try:
+            compra.url_pago = self._pasarela_pago.crear_pago(compra)
+        except PagoNoDisponibleError:
+            # Sin link de pago la compra no se puede completar: se anula
+            # para que no cuente en el límite de entradas por fecha.
+            self._cambiar_estado(compra, EstadoCompra.ANULADA)
+            raise
+
+    def _cambiar_estado(self, compra, estado):
+        compra.estado = estado
+        self._compras.actualizar_estado(compra)
 
     @staticmethod
     def _estado_inicial(medio_pago, total):
