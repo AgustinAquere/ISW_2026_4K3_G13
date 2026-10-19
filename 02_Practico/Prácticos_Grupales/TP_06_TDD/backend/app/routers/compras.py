@@ -20,6 +20,7 @@ from app.schemas import (
     CotizacionRequest,
     CotizacionResponse,
     FechasDisponiblesResponse,
+    VerificacionPagoResponse,
 )
 from app.servicios.compra_service import ServicioCompra
 
@@ -91,6 +92,32 @@ def confirmar_pago(
             "Intentá de nuevo más tarde.",
         ) from error
     return CompraResponse.desde_compra(compra)
+
+
+@router.post(
+    "/compras/{id_compra}/verificacion-de-pago",
+    response_model=VerificacionPagoResponse,
+)
+def verificar_pago(
+    id_compra: int,
+    servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
+    email_usuario: Annotated[str, Depends(usuario_en_sesion)],
+):
+    try:
+        compra, pago = servicio.verificar_pago(email_usuario, id_compra)
+    except CompraNoEncontradaError as error:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Compra no encontrada"
+        ) from error
+    except CompraInvalidaError as error:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
+    except PagoNoDisponibleError as error:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "No se pudo consultar el pago con Mercado Pago. "
+            "Intentá de nuevo más tarde.",
+        ) from error
+    return VerificacionPagoResponse.desde_verificacion(compra, pago)
 
 
 @router.get("/fechas-disponibles", response_model=FechasDisponiblesResponse)
