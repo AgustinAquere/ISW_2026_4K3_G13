@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -68,17 +69,11 @@ def comprar_entradas(
     return CompraResponse.desde_compra(resultado)
 
 
-@router.post("/compras/{id_compra}/pago", response_model=CompraResponse)
-def confirmar_pago(
-    id_compra: int,
-    confirmacion: ConfirmacionPagoRequest,
-    servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
-    email_usuario: Annotated[str, Depends(usuario_en_sesion)],
-):
+@contextmanager
+def errores_del_pago():
+    """Traduce los errores al confirmar o verificar un pago."""
     try:
-        compra = servicio.confirmar_pago(
-            email_usuario, id_compra, confirmacion.id_pago
-        )
+        yield
     except CompraNoEncontradaError as error:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "Compra no encontrada"
@@ -91,6 +86,19 @@ def confirmar_pago(
             "No se pudo consultar el pago con Mercado Pago. "
             "Intentá de nuevo más tarde.",
         ) from error
+
+
+@router.post("/compras/{id_compra}/pago", response_model=CompraResponse)
+def confirmar_pago(
+    id_compra: int,
+    confirmacion: ConfirmacionPagoRequest,
+    servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
+    email_usuario: Annotated[str, Depends(usuario_en_sesion)],
+):
+    with errores_del_pago():
+        compra = servicio.confirmar_pago(
+            email_usuario, id_compra, confirmacion.id_pago
+        )
     return CompraResponse.desde_compra(compra)
 
 
@@ -103,20 +111,8 @@ def verificar_pago(
     servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
     email_usuario: Annotated[str, Depends(usuario_en_sesion)],
 ):
-    try:
+    with errores_del_pago():
         compra, pago = servicio.verificar_pago(email_usuario, id_compra)
-    except CompraNoEncontradaError as error:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, "Compra no encontrada"
-        ) from error
-    except CompraInvalidaError as error:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
-    except PagoNoDisponibleError as error:
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY,
-            "No se pudo consultar el pago con Mercado Pago. "
-            "Intentá de nuevo más tarde.",
-        ) from error
     return VerificacionPagoResponse.desde_verificacion(compra, pago)
 
 
