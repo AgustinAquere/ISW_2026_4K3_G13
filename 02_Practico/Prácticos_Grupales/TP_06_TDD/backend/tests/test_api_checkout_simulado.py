@@ -1,11 +1,6 @@
 import pytest
 
-from app.dependencias import obtener_mercado_pago_simulado
-from app.main import app
-from app.mercado_pago_simulado.nucleo import (
-    TOKEN_SIMULADO,
-    MercadoPagoSimulado,
-)
+from app.mercado_pago_simulado.nucleo import TOKEN_SIMULADO
 
 DATOS_PREFERENCIA = {
     "items": [
@@ -30,26 +25,12 @@ PAGO_APROBADO = {
 }
 
 
-@pytest.fixture
-def mercado_pago_simulado():
-    return MercadoPagoSimulado("http://testserver/")
-
-
-@pytest.fixture
-def checkout(client, mercado_pago_simulado):
-    """Cliente cuyo checkout simulado usa el simulador de la prueba."""
-    app.dependency_overrides[obtener_mercado_pago_simulado] = lambda: (
-        mercado_pago_simulado
-    )
-    return client
-
-
 def crear_preferencia(simulador, **cambios):
     return simulador.crear_preferencia({**DATOS_PREFERENCIA, **cambios})
 
 
-def pagar(checkout, id_preferencia, **cambios):
-    return checkout.post(
+def pagar(client, id_preferencia, **cambios):
+    return client.post(
         f"/mercadopago-simulado/checkout/{id_preferencia}/pagos",
         json={**PAGO_APROBADO, **cambios},
     )
@@ -58,8 +39,8 @@ def pagar(checkout, id_preferencia, **cambios):
 # Página y datos del checkout
 
 
-def test_la_pagina_de_checkout_se_sirve_con_el_aviso_de_simulacion(checkout):
-    respuesta = checkout.get("/mercadopago-simulado/checkout?pref_id=x")
+def test_la_pagina_de_checkout_se_sirve_con_el_aviso_de_simulacion(client):
+    respuesta = client.get("/mercadopago-simulado/checkout?pref_id=x")
 
     assert respuesta.status_code == 200
     assert respuesta.headers["content-type"].startswith("text/html")
@@ -68,11 +49,11 @@ def test_la_pagina_de_checkout_se_sirve_con_el_aviso_de_simulacion(checkout):
 
 
 def test_los_datos_del_checkout_informan_descripcion_y_total(
-    checkout, mercado_pago_simulado
+    client, mercado_pago_simulado
 ):
     pref = crear_preferencia(mercado_pago_simulado)
 
-    respuesta = checkout.get(
+    respuesta = client.get(
         f"/mercadopago-simulado/checkout/{pref['id']}/datos"
     )
 
@@ -83,9 +64,9 @@ def test_los_datos_del_checkout_informan_descripcion_y_total(
     }
 
 
-def test_datos_de_una_preferencia_inexistente_responde_404(checkout):
+def test_datos_de_una_preferencia_inexistente_responde_404(client):
     # Por ejemplo, si el servidor se reinició entre la compra y el pago.
-    respuesta = checkout.get("/mercadopago-simulado/checkout/no-existe/datos")
+    respuesta = client.get("/mercadopago-simulado/checkout/no-existe/datos")
 
     assert respuesta.status_code == 404
     assert respuesta.json()["detail"] == "Preferencia inexistente"
@@ -95,11 +76,11 @@ def test_datos_de_una_preferencia_inexistente_responde_404(checkout):
 
 
 def test_pagar_desde_el_checkout_devuelve_el_pago_y_la_url_de_vuelta(
-    checkout, mercado_pago_simulado
+    client, mercado_pago_simulado
 ):
     pref = crear_preferencia(mercado_pago_simulado)
 
-    respuesta = pagar(checkout, pref["id"])
+    respuesta = pagar(client, pref["id"])
 
     assert respuesta.status_code == 201
     cuerpo = respuesta.json()
@@ -114,42 +95,42 @@ def test_pagar_desde_el_checkout_devuelve_el_pago_y_la_url_de_vuelta(
     "titular, vuelve_solo", [("APRO", True), ("OTHE", False)]
 )
 def test_con_auto_return_solo_un_pago_aprobado_vuelve_solo(
-    checkout, mercado_pago_simulado, titular, vuelve_solo
+    client, mercado_pago_simulado, titular, vuelve_solo
 ):
     pref = crear_preferencia(mercado_pago_simulado, auto_return="approved")
 
-    respuesta = pagar(checkout, pref["id"], titular=titular)
+    respuesta = pagar(client, pref["id"], titular=titular)
 
     assert respuesta.json()["volver_automaticamente"] is vuelve_solo
 
 
-def test_pagar_una_preferencia_inexistente_responde_404(checkout):
-    respuesta = pagar(checkout, "no-existe")
+def test_pagar_una_preferencia_inexistente_responde_404(client):
+    respuesta = pagar(client, "no-existe")
 
     assert respuesta.status_code == 404
     assert respuesta.json()["detail"] == "Preferencia inexistente"
 
 
 def test_pagar_dos_veces_una_preferencia_aprobada_responde_409(
-    checkout, mercado_pago_simulado
+    client, mercado_pago_simulado
 ):
     pref = crear_preferencia(mercado_pago_simulado)
-    pagar(checkout, pref["id"])
+    pagar(client, pref["id"])
 
-    respuesta = pagar(checkout, pref["id"])
+    respuesta = pagar(client, pref["id"])
 
     assert respuesta.status_code == 409
     assert respuesta.json()["detail"] == "Este pago ya fue realizado"
-    datos = checkout.get(f"/mercadopago-simulado/checkout/{pref['id']}/datos")
+    datos = client.get(f"/mercadopago-simulado/checkout/{pref['id']}/datos")
     assert datos.json()["pagada"] is True
 
 
 def test_el_numero_de_tarjeta_no_se_acepta_en_el_pago(
-    checkout, mercado_pago_simulado
+    client, mercado_pago_simulado
 ):
     pref = crear_preferencia(mercado_pago_simulado)
 
-    respuesta = pagar(checkout, pref["id"], numero="5031755734530604")
+    respuesta = pagar(client, pref["id"], numero="5031755734530604")
 
     assert respuesta.status_code == 422
     assert mercado_pago_simulado.pagos_de_preferencia(pref["id"]) == []
@@ -161,11 +142,11 @@ def test_el_numero_de_tarjeta_no_se_acepta_en_el_pago(
     ids=["marca", "ultimos-digitos", "titular"],
 )
 def test_datos_de_pago_invalidos_responden_422(
-    checkout, mercado_pago_simulado, cambios
+    client, mercado_pago_simulado, cambios
 ):
     pref = crear_preferencia(mercado_pago_simulado)
 
-    respuesta = pagar(checkout, pref["id"], **cambios)
+    respuesta = pagar(client, pref["id"], **cambios)
 
     assert respuesta.status_code == 422
     assert mercado_pago_simulado.pagos_de_preferencia(pref["id"]) == []
@@ -175,11 +156,11 @@ def test_datos_de_pago_invalidos_responden_422(
 
 
 def test_la_api_simulada_por_http_crea_y_consulta(
-    checkout, mercado_pago_simulado
+    client, mercado_pago_simulado
 ):
     cabeceras = {"Authorization": f"Bearer {TOKEN_SIMULADO}"}
 
-    creada = checkout.post(
+    creada = client.post(
         "/mercadopago-simulado/api/checkout/preferences",
         headers=cabeceras,
         json=DATOS_PREFERENCIA,
@@ -187,7 +168,7 @@ def test_la_api_simulada_por_http_crea_y_consulta(
     pago = mercado_pago_simulado.pagar(
         creada.json()["id"], "APRO", "visa", "3704"
     )
-    consultado = checkout.get(
+    consultado = client.get(
         f"/mercadopago-simulado/api/v1/payments/{pago['id']}",
         headers=cabeceras,
     )
@@ -197,7 +178,7 @@ def test_la_api_simulada_por_http_crea_y_consulta(
     assert consultado.json()["status"] == "approved"
 
 
-def test_la_api_simulada_por_http_sin_token_responde_401(checkout):
-    respuesta = checkout.get("/mercadopago-simulado/api/v1/payments/1")
+def test_la_api_simulada_por_http_sin_token_responde_401(client):
+    respuesta = client.get("/mercadopago-simulado/api/v1/payments/1")
 
     assert respuesta.status_code == 401

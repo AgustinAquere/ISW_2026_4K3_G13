@@ -1,18 +1,33 @@
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from app.adaptadores.notificador import NotificadorEnMemoria
-from app.adaptadores.pasarela_pago import PasarelaMercadoPagoSimulada
+from app.adaptadores.pasarela_pago import PasarelaMercadoPago
 from app.adaptadores.repositorios import (
     RepositorioComprasEnMemoria,
     RepositorioUsuariosEnMemoria,
 )
-from app.dependencias import obtener_reloj, obtener_servicio_compra
+from app.dependencias import (
+    obtener_mercado_pago_simulado,
+    obtener_reloj,
+    obtener_servicio_compra,
+)
 from app.main import app
+from app.mercado_pago_simulado.api import (
+    PREFIJO_API_SIMULADA,
+    transporte_en_proceso,
+)
+from app.mercado_pago_simulado.nucleo import (
+    TOKEN_SIMULADO,
+    MercadoPagoSimulado,
+)
 from app.servicios.compra_service import ServicioCompra
 from tests.fechas import AHORA
 
 EMAIL_REGISTRADO = "visitante@ecoharmony.com"
+# Dirección del TestClient de FastAPI.
+URL_PUBLICA = "http://testserver/"
 
 
 class MercadoPagoQueInforma:
@@ -61,8 +76,19 @@ def notificador():
 
 
 @pytest.fixture
-def pasarela_pago():
-    return PasarelaMercadoPagoSimulada()
+def mercado_pago_simulado():
+    return MercadoPagoSimulado(URL_PUBLICA)
+
+
+@pytest.fixture
+def pasarela_pago(mercado_pago_simulado):
+    # La misma pasarela que en el modo real, hablándole al simulador.
+    return PasarelaMercadoPago(
+        TOKEN_SIMULADO,
+        URL_PUBLICA,
+        httpx.Client(transport=transporte_en_proceso(mercado_pago_simulado)),
+        url_api=URL_PUBLICA.rstrip("/") + PREFIJO_API_SIMULADA,
+    )
 
 
 @pytest.fixture
@@ -76,9 +102,12 @@ def servicio(reloj, usuarios, compras, notificador, pasarela_pago):
 
 
 @pytest.fixture
-def client(servicio, reloj):
+def client(servicio, reloj, mercado_pago_simulado):
     app.dependency_overrides[obtener_servicio_compra] = lambda: servicio
     app.dependency_overrides[obtener_reloj] = lambda: reloj
+    app.dependency_overrides[obtener_mercado_pago_simulado] = lambda: (
+        mercado_pago_simulado
+    )
     yield TestClient(app)
     app.dependency_overrides.clear()
 
