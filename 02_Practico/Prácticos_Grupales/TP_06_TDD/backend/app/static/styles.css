@@ -177,6 +177,14 @@ a:focus-visible,
 .detalle-compra dt { color: var(--gris); }
 .detalle-compra dd { margin: 0; font-weight: 700; }
 
+.info-pago {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 4px solid var(--verde);
+  text-align: left;
+  font-weight: 700;
+}
+
 .confirmacion .aviso-mail { text-align: left; }
 .confirmacion .boton { display: block; margin-top: 16px; text-decoration: none; }
 
