@@ -1,3 +1,7 @@
+import json
+
+import httpx
+
 from app.adaptadores.notificador import NotificadorEmailLog, NotificadorSMTP
 from app.adaptadores.pasarela_pago import PasarelaMercadoPago
 from app.dependencias import (
@@ -63,3 +67,34 @@ def test_los_usuarios_registrados_se_pueden_configurar():
 
 def test_sin_configurar_hay_un_usuario_de_demostracion():
     assert usuarios_registrados({}) == ["visitante@ecoharmony.com"]
+
+
+def test_el_email_del_comprador_de_prueba_se_toma_del_env():
+    solicitudes = []
+
+    def api(solicitud):
+        solicitudes.append(solicitud)
+        return httpx.Response(201, json={"init_point": "x"})
+
+    pasarela = crear_pasarela_pago(
+        {
+            "MP_ACCESS_TOKEN": "APP_USR-1",
+            "MP_EMAIL_COMPRADOR_PRUEBA": "TESTUSER123@testuser.com",
+        },
+        cliente=httpx.Client(transport=httpx.MockTransport(api)),
+    )
+    pasarela.crear_pago(
+        Compra(
+            email_usuario="visitante@ecoharmony.com",
+            fecha_visita=FECHA_VISITA,
+            cantidad=1,
+            edades=[30],
+            tipo_pase=TipoPase.REGULAR,
+            medio_pago=MedioPago.TARJETA,
+            total=10000,
+            id=1,
+        )
+    )
+
+    preferencia = json.loads(solicitudes[0].content)
+    assert preferencia["payer"] == {"email": "TESTUSER123@testuser.com"}
