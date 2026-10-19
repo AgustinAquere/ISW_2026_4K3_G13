@@ -59,6 +59,8 @@ def responder_api(
 
 def transporte_en_proceso(simulador):
     def atender(solicitud):
+        if not solicitud.url.path.startswith(PREFIJO_API_SIMULADA):
+            return httpx.Response(404, json=RECURSO_NO_ENCONTRADO)
         camino = solicitud.url.path.removeprefix(PREFIJO_API_SIMULADA)
         cuerpo = json.loads(solicitud.content) if solicitud.content else None
         estado, respuesta = responder_api(
