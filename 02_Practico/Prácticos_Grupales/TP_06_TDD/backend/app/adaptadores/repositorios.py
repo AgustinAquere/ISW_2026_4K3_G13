@@ -8,6 +8,13 @@ class RepositorioUsuariosEnMemoria:
     def esta_registrado(self, email):
         return email in self._emails
 
+    def registrar(self, email):
+        """Registra el email; devuelve False si ya estaba registrado."""
+        if email in self._emails:
+            return False
+        self._emails.add(email)
+        return True
+
 
 class RepositorioComprasEnMemoria:
     def __init__(self):
