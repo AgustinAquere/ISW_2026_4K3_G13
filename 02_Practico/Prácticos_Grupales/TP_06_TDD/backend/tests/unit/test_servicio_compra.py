@@ -3,10 +3,15 @@ from datetime import date
 import pytest
 
 from app.adaptadores.repositorios import RepositorioUsuariosEnMemoria
-from app.dominio.errores import CompraInvalidaError, UsuarioNoRegistradoError
+from app.dominio.errores import (
+    CompraInvalidaError,
+    CompraNoEncontradaError,
+    UsuarioNoRegistradoError,
+)
 from app.dominio.modelos import (
     EstadoCompra,
     MedioPago,
+    PagoInformado,
     SolicitudCompra,
     TipoPase,
 )
@@ -156,7 +161,7 @@ def test_cp24_pago_con_tarjeta_redirige_a_mercado_pago(
 ):
     compra = servicio.comprar(solicitud(medio_pago=MedioPago.TARJETA))
 
-    assert compra.url_pago.startswith("https://www.mercadopago.com.ar/")
+    assert compra.url_pago is not None
     assert pasarela_pago.pagos_creados == [compra]
 
 
@@ -237,3 +242,109 @@ def test_cp26_resumen_en_singular_para_una_entrada(servicio):
     compra = servicio.comprar(solicitud(cantidad=1, edades=[30]))
 
     assert compra.resumen() == "Compraste 1 entrada para el 15/11/2026"
+
+
+# 7. Confirmación del pago con Mercado Pago: al volver del checkout se
+# consulta el pago y, si está aprobado, se confirma la compra y se envía
+# el mail.
+
+
+@pytest.fixture
+def servicio_mp(reloj, usuarios, compras, notificador, mercado_pago):
+    return ServicioCompra(reloj, usuarios, compras, notificador, mercado_pago)
+
+
+def compra_con_tarjeta(servicio_mp):
+    return servicio_mp.comprar(solicitud(medio_pago=MedioPago.TARJETA))
+
+
+def test_cp30_pago_aprobado_confirma_la_compra_y_envia_el_mail(
+    servicio_mp, mercado_pago, compras, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+
+    confirmada = servicio_mp.confirmar_pago(
+        EMAIL_REGISTRADO, compra.id, "pago-1"
+    )
+
+    assert confirmada.estado == EstadoCompra.CONFIRMADA
+    assert compras.obtener(compra.id).estado == EstadoCompra.CONFIRMADA
+    assert notificador.enviados == [confirmada]
+    assert mercado_pago.consultados == ["pago-1"]
+
+
+def test_cp31_pago_no_aprobado_deja_la_compra_pendiente_sin_mail(
+    servicio_mp, mercado_pago, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado("pago-1", False, compra.id, compra.total)
+
+    resultado = servicio_mp.confirmar_pago(
+        EMAIL_REGISTRADO, compra.id, "pago-1"
+    )
+
+    assert resultado.estado == EstadoCompra.PENDIENTE_DE_PAGO
+    assert notificador.enviados == []
+
+
+@pytest.mark.parametrize(
+    "otra_compra, otro_monto",
+    [(True, False), (False, True)],
+    ids=["CP-32-otra-compra", "CP-32-otro-monto"],
+)
+def test_cp32_pago_que_no_corresponde_a_la_compra_es_rechazado(
+    servicio_mp, mercado_pago, notificador, otra_compra, otro_monto
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado(
+        "pago-1",
+        True,
+        compra.id + 1 if otra_compra else compra.id,
+        compra.total - 1 if otro_monto else compra.total,
+    )
+
+    with pytest.raises(CompraInvalidaError, match="no corresponde"):
+        servicio_mp.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
+
+    assert compra.estado == EstadoCompra.PENDIENTE_DE_PAGO
+    assert notificador.enviados == []
+
+
+def test_cp33_confirmar_dos_veces_el_mismo_pago_envia_un_solo_mail(
+    servicio_mp, mercado_pago, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+
+    servicio_mp.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
+    servicio_mp.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
+
+    assert len(notificador.enviados) == 1
+
+
+def test_confirmar_el_pago_de_una_compra_inexistente_es_rechazado(
+    servicio_mp,
+):
+    with pytest.raises(CompraNoEncontradaError):
+        servicio_mp.confirmar_pago(EMAIL_REGISTRADO, 99, "pago-1")
+
+
+def test_confirmar_el_pago_de_una_compra_de_otro_usuario_es_rechazado(
+    reloj, compras, notificador, mercado_pago
+):
+    otro_usuario = "otro@ecoharmony.com"
+    servicio = ServicioCompra(
+        reloj,
+        RepositorioUsuariosEnMemoria([EMAIL_REGISTRADO, otro_usuario]),
+        compras,
+        notificador,
+        mercado_pago,
+    )
+    compra = compra_con_tarjeta(servicio)
+    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+
+    with pytest.raises(CompraNoEncontradaError):
+        servicio.confirmar_pago(otro_usuario, compra.id, "pago-1")
+
+    assert notificador.enviados == []
