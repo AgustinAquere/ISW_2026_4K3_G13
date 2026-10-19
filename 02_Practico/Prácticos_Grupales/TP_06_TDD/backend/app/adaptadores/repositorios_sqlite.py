@@ -91,6 +91,13 @@ class RepositorioComprasSQLite:
         ).fetchall()
         return [self._a_compra(fila) for fila in filas]
 
+    def actualizar_estado(self, compra):
+        with self._conexion:
+            self._conexion.execute(
+                "UPDATE compras SET estado = ? WHERE id = ?",
+                (compra.estado.value, compra.id),
+            )
+
     def entradas_compradas(self, email, fecha_visita):
         (total,) = self._conexion.execute(
             "SELECT COALESCE(SUM(cantidad), 0) FROM compras "
