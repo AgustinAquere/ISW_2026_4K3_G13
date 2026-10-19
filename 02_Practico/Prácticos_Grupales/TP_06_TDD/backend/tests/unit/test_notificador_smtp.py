@@ -221,3 +221,16 @@ def test_el_mail_html_muestra_el_logo_del_parque_como_imagen_adjunta(
     content_id = logo["Content-ID"].strip("<>")
     assert f'src="cid:{content_id}"' in html_del_mail(servidor)
     assert logo.get_content().startswith(b"\x89PNG")
+
+
+def test_el_logo_va_dentro_del_mensaje_y_no_como_adjunto(servidor):
+    # Con Content-Disposition: attachment, Gmail lo muestra como archivo
+    # adjunto debajo del mail y no dentro del HTML.
+    notificador(servidor).enviar_confirmacion(compra_nueva())
+
+    (logo,) = [
+        parte
+        for parte in mail_enviado(servidor).walk()
+        if parte.get_content_type() == "image/png"
+    ]
+    assert logo.get_content_disposition() == "inline"
