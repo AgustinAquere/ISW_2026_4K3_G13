@@ -101,8 +101,8 @@ class RepositorioComprasSQLite:
     def entradas_compradas(self, email, fecha_visita):
         (total,) = self._conexion.execute(
             "SELECT COALESCE(SUM(cantidad), 0) FROM compras "
-            "WHERE email_usuario = ? AND fecha_visita = ?",
-            (email, fecha_visita.isoformat()),
+            "WHERE email_usuario = ? AND fecha_visita = ? AND estado != ?",
+            (email, fecha_visita.isoformat(), EstadoCompra.ANULADA.value),
         ).fetchone()
         return total
 

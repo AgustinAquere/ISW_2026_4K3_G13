@@ -2,6 +2,7 @@ from app.dominio.calendario import validar_fecha_visita
 from app.dominio.errores import (
     CompraInvalidaError,
     CompraNoEncontradaError,
+    PagoNoDisponibleError,
     UsuarioNoRegistradoError,
 )
 from app.dominio.modelos import Compra, EstadoCompra, MedioPago
@@ -33,7 +34,12 @@ class ServicioCompra:
         )
         self._compras.guardar(compra)
         if compra.estado == EstadoCompra.PENDIENTE_DE_PAGO:
-            compra.url_pago = self._pasarela_pago.crear_pago(compra)
+            try:
+                compra.url_pago = self._pasarela_pago.crear_pago(compra)
+            except PagoNoDisponibleError:
+                compra.estado = EstadoCompra.ANULADA
+                self._compras.actualizar_estado(compra)
+                raise
         else:
             self._notificador.enviar_confirmacion(compra)
         return compra
@@ -44,6 +50,8 @@ class ServicioCompra:
             raise CompraNoEncontradaError()
         if compra.estado == EstadoCompra.CONFIRMADA:
             return compra
+        if compra.estado == EstadoCompra.ANULADA:
+            raise CompraInvalidaError("La compra fue anulada")
         pago = self._pasarela_pago.consultar_pago(id_pago)
         if pago.id_compra != compra.id or pago.monto != compra.total:
             raise CompraInvalidaError("El pago no corresponde a la compra")

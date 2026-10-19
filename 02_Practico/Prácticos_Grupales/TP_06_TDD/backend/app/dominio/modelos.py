@@ -16,6 +16,7 @@ class MedioPago(str, Enum):
 class EstadoCompra(str, Enum):
     PENDIENTE_DE_PAGO = "PENDIENTE_DE_PAGO"
     CONFIRMADA = "CONFIRMADA"
+    ANULADA = "ANULADA"
 
 
 @dataclass(frozen=True)
