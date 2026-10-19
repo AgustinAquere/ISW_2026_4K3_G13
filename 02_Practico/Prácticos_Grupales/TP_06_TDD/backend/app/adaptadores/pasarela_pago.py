@@ -5,9 +5,6 @@ import httpx
 from app.dominio.errores import PagoNoDisponibleError
 from app.dominio.modelos import PagoInformado
 
-URL_CHECKOUT_MERCADO_PAGO = (
-    "https://www.mercadopago.com.ar/checkout/v1/redirect"
-)
 URL_PREFERENCIAS_MERCADO_PAGO = (
     "https://api.mercadopago.com/checkout/preferences"
 )
