@@ -83,7 +83,9 @@ def test_cp01_compra_con_tarjeta_mediante_mercado_pago_y_mail(
     assert cuerpo["cantidad"] == 3
     assert cuerpo["fecha_visita"] == "2026-11-15"
     assert cuerpo["total"] == 50000  # 2 VIP completos + 1 VIP al 50 %
-    assert len(notificador.enviados) == 1
+    assert cuerpo["estado"] == "PENDIENTE_DE_PAGO"
+    # El mail de confirmación se envía cuando Mercado Pago aprueba el pago.
+    assert notificador.enviados == []
 
 
 @pytest.mark.parametrize(
@@ -144,6 +146,7 @@ def test_cp23_api_compra_en_boleteria_sin_url_de_pago(
 
     assert respuesta.status_code == 201
     assert respuesta.json()["url_pago"] is None
+    assert respuesta.json()["estado"] == "CONFIRMADA"
 
 
 def test_cp26_api_informa_cantidad_y_fecha_al_finalizar(

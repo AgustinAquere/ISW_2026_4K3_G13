@@ -4,7 +4,12 @@ import pytest
 
 from app.adaptadores.repositorios import RepositorioUsuariosEnMemoria
 from app.dominio.errores import CompraInvalidaError, UsuarioNoRegistradoError
-from app.dominio.modelos import MedioPago, SolicitudCompra, TipoPase
+from app.dominio.modelos import (
+    EstadoCompra,
+    MedioPago,
+    SolicitudCompra,
+    TipoPase,
+)
 from app.dominio.precios import PRECIO_BASE
 from app.servicios.compra_service import ServicioCompra
 from tests.conftest import EMAIL_REGISTRADO
@@ -166,6 +171,32 @@ def test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago(
     assert compra.total == 0
     assert compra.url_pago is None
     assert pasarela_pago.pagos_creados == []
+
+
+def test_cp29_compra_con_tarjeta_queda_pendiente_de_pago_sin_mail(
+    servicio, notificador
+):
+    compra = servicio.comprar(solicitud(medio_pago=MedioPago.TARJETA))
+
+    assert compra.estado == EstadoCompra.PENDIENTE_DE_PAGO
+    assert notificador.enviados == []
+
+
+def test_compra_en_boleteria_queda_confirmada(servicio):
+    compra = servicio.comprar(solicitud(medio_pago=MedioPago.EFECTIVO))
+
+    assert compra.estado == EstadoCompra.CONFIRMADA
+
+
+def test_compra_con_tarjeta_sin_costo_queda_confirmada_y_envia_mail(
+    servicio, notificador
+):
+    compra = servicio.comprar(
+        solicitud(edades=[1, 3], medio_pago=MedioPago.TARJETA)
+    )
+
+    assert compra.estado == EstadoCompra.CONFIRMADA
+    assert notificador.enviados == [compra]
 
 
 # 6. Confirmación de la compra
