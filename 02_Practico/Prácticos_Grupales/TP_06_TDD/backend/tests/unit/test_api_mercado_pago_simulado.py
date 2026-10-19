@@ -1,0 +1,157 @@
+import httpx
+import pytest
+
+from app.adaptadores.pasarela_pago import PasarelaMercadoPago
+from app.dominio.errores import PagoNoDisponibleError
+from app.dominio.modelos import Compra, MedioPago, PagoInformado, TipoPase
+from app.mercado_pago_simulado.api import (
+    PREFIJO_API_SIMULADA,
+    responder_api,
+    transporte_en_proceso,
+)
+from app.mercado_pago_simulado.nucleo import (
+    TOKEN_SIMULADO,
+    MercadoPagoSimulado,
+)
+from tests.fechas import FECHA_VISITA
+
+URL_PUBLICA = "http://127.0.0.1:8000/"
+AUTORIZACION = f"Bearer {TOKEN_SIMULADO}"
+
+
+@pytest.fixture
+def simulador():
+    return MercadoPagoSimulado(URL_PUBLICA)
+
+
+def compra_con_tarjeta():
+    return Compra(
+        email_usuario="visitante@ecoharmony.com",
+        fecha_visita=FECHA_VISITA,
+        cantidad=2,
+        edades=[40, 8],
+        tipo_pase=TipoPase.REGULAR,
+        medio_pago=MedioPago.TARJETA,
+        total=15000,
+        id=7,
+    )
+
+
+def pasarela_simulada(simulador):
+    cliente = httpx.Client(transport=transporte_en_proceso(simulador))
+    return PasarelaMercadoPago(
+        TOKEN_SIMULADO,
+        URL_PUBLICA,
+        cliente,
+        url_api=URL_PUBLICA.rstrip("/") + PREFIJO_API_SIMULADA,
+    )
+
+
+# Contrato de la API simulada: el mismo que la API de Mercado Pago.
+
+
+def test_sin_token_la_api_responde_401(simulador):
+    estado, cuerpo = responder_api(
+        simulador, "GET", "/v1/payments/1", None, None
+    )
+
+    assert estado == 401
+    assert cuerpo["status"] == 401
+
+
+def test_con_otro_token_la_api_responde_401(simulador):
+    estado, _ = responder_api(
+        simulador,
+        "POST",
+        "/checkout/preferences",
+        "Bearer TEST-123",
+        {"items": []},
+    )
+
+    assert estado == 401
+
+
+def test_la_api_crea_la_preferencia(simulador):
+    datos = {
+        "items": [{"title": "a", "quantity": 1, "unit_price": 100}],
+        "external_reference": "7",
+        "back_urls": {"success": "http://sitio/"},
+    }
+
+    estado, cuerpo = responder_api(
+        simulador, "POST", "/checkout/preferences", AUTORIZACION, datos
+    )
+
+    assert estado == 201
+    assert simulador.obtener_preferencia(cuerpo["id"]) == cuerpo
+
+
+@pytest.mark.parametrize("id_pago", ["999", "abc"])
+def test_un_pago_inexistente_responde_404(simulador, id_pago):
+    estado, cuerpo = responder_api(
+        simulador, "GET", f"/v1/payments/{id_pago}", AUTORIZACION, None
+    )
+
+    assert estado == 404
+    assert cuerpo["error"] == "not_found"
+
+
+def test_un_camino_desconocido_responde_404(simulador):
+    estado, _ = responder_api(simulador, "GET", "/v1/otro", AUTORIZACION, None)
+
+    assert estado == 404
+
+
+# PasarelaMercadoPago es la misma clase en los dos modos: en el simulado le
+# habla al simulador por un transporte dentro del mismo proceso.
+
+
+def test_la_pasarela_crea_la_preferencia_en_el_simulador(simulador):
+    url = pasarela_simulada(simulador).crear_pago(compra_con_tarjeta())
+
+    (pref,) = simulador.preferencias_creadas()
+    assert url == pref["init_point"]
+    assert pref["external_reference"] == "7"
+    assert simulador.total(pref["id"]) == 15000
+
+
+@pytest.mark.parametrize(
+    "titular, aprobado", [("APRO", True), ("OTHE", False)]
+)
+def test_la_pasarela_informa_el_pago_del_simulador(
+    simulador, titular, aprobado
+):
+    pasarela = pasarela_simulada(simulador)
+    pasarela.crear_pago(compra_con_tarjeta())
+    (pref,) = simulador.preferencias_creadas()
+    pago = simulador.pagar(pref["id"], titular, "master", "0604")
+
+    informado = pasarela.consultar_pago(str(pago["id"]))
+
+    assert informado == PagoInformado(str(pago["id"]), aprobado, 7, 15000)
+
+
+def test_un_pago_desconocido_por_el_simulador_es_pago_no_disponible(
+    simulador,
+):
+    with pytest.raises(PagoNoDisponibleError):
+        pasarela_simulada(simulador).consultar_pago("999")
+
+
+def test_por_defecto_la_pasarela_usa_la_api_real():
+    solicitudes = []
+
+    def api_real(solicitud):
+        solicitudes.append(solicitud)
+        return httpx.Response(
+            201, json={"init_point": "real", "sandbox_init_point": "prueba"}
+        )
+
+    cliente = httpx.Client(transport=httpx.MockTransport(api_real))
+    PasarelaMercadoPago("TEST-1", URL_PUBLICA, cliente).crear_pago(
+        compra_con_tarjeta()
+    )
+
+    assert str(solicitudes[0].url) == (
+        "https://api.mercadopago.com/checkout/preferences"
+    )
