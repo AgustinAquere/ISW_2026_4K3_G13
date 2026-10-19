@@ -27,6 +27,23 @@ def id_de_pago(url_de_vuelta):
     return parse_qs(urlsplit(url_de_vuelta).query)["payment_id"][0]
 
 
+def pagar_en_checkout(client, url_pago, titular):
+    """Paga en el checkout simulado como lo haría el profesor en la demo.
+
+    Devuelve la URL con la que Mercado Pago vuelve al sitio.
+    """
+    (id_preferencia,) = parse_qs(urlsplit(url_pago).query)["pref_id"]
+    respuesta = client.post(
+        f"/mercadopago-simulado/checkout/{id_preferencia}/pagos",
+        json={
+            "titular": titular,
+            "marca": "master",
+            "ultimos_digitos": "0604",
+        },
+    )
+    return respuesta.json()["url_de_vuelta"]
+
+
 def solicitud_sin(campo):
     solicitud = solicitud_valida()
     del solicitud[campo]
@@ -87,7 +104,9 @@ def test_cp01_compra_con_tarjeta_mediante_mercado_pago_y_mail(
 
     assert respuesta.status_code == 201
     cuerpo = respuesta.json()
-    assert cuerpo["url_pago"]
+    assert cuerpo["url_pago"].startswith(
+        "http://testserver/mercadopago-simulado/checkout?pref_id="
+    )
     assert cuerpo["cantidad"] == 3
     assert cuerpo["fecha_visita"] == FECHA_VISITA.isoformat()
     assert cuerpo["total"] == 50000  # 2 VIP completos + 1 VIP al 50 %
@@ -95,10 +114,11 @@ def test_cp01_compra_con_tarjeta_mediante_mercado_pago_y_mail(
     # El mail de confirmación se envía cuando Mercado Pago aprueba el pago.
     assert notificador.enviados == []
 
-    # Vuelta desde Mercado Pago con el pago aprobado, como hace el front.
+    # Pago con tarjeta en el checkout y vuelta al sitio, como hace el front.
+    vuelta = pagar_en_checkout(client, cuerpo["url_pago"], "APRO")
     confirmacion = client.post(
         f"/compras/{cuerpo['id']}/pago",
-        json={"id_pago": id_de_pago(cuerpo["url_pago"])},
+        json={"id_pago": id_de_pago(vuelta)},
         headers=cabecera_usuario,
     )
 
@@ -216,9 +236,11 @@ def test_confirmar_el_pago_sin_iniciar_sesion_es_rechazado(
 ):
     compra = comprar_con_tarjeta(client, cabecera_usuario)
 
+    vuelta = pagar_en_checkout(client, compra["url_pago"], "APRO")
+
     respuesta = client.post(
         f"/compras/{compra['id']}/pago",
-        json={"id_pago": id_de_pago(compra["url_pago"])},
+        json={"id_pago": id_de_pago(vuelta)},
     )
 
     assert respuesta.status_code == 401
@@ -239,10 +261,13 @@ def test_confirmar_un_pago_que_no_corresponde_a_la_compra_responde_400(
     client, cabecera_usuario, notificador
 ):
     compra = comprar_con_tarjeta(client, cabecera_usuario)
+    otra_compra = comprar_con_tarjeta(client, cabecera_usuario)
+    vuelta = pagar_en_checkout(client, otra_compra["url_pago"], "APRO")
 
+    # El pago es de la otra compra.
     respuesta = client.post(
         f"/compras/{compra['id']}/pago",
-        json={"id_pago": "SIMULADO-99"},
+        json={"id_pago": id_de_pago(vuelta)},
         headers=cabecera_usuario,
     )
 
@@ -255,6 +280,7 @@ def test_api_informa_si_no_se_puede_consultar_el_pago(
     client, cabecera_usuario, pasarela_pago, monkeypatch
 ):
     compra = comprar_con_tarjeta(client, cabecera_usuario)
+    vuelta = pagar_en_checkout(client, compra["url_pago"], "APRO")
 
     def mercado_pago_caido(id_pago):
         raise PagoNoDisponibleError()
@@ -263,9 +289,52 @@ def test_api_informa_si_no_se_puede_consultar_el_pago(
 
     respuesta = client.post(
         f"/compras/{compra['id']}/pago",
-        json={"id_pago": id_de_pago(compra["url_pago"])},
+        json={"id_pago": id_de_pago(vuelta)},
         headers=cabecera_usuario,
     )
 
     assert respuesta.status_code == 502
     assert "Mercado Pago" in respuesta.json()["detail"]
+
+
+def test_confirmar_con_un_pago_inexistente_responde_502(
+    client, cabecera_usuario
+):
+    # Mercado Pago no conoce ese pago (por ejemplo, se reinició el servidor).
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    respuesta = client.post(
+        f"/compras/{compra['id']}/pago",
+        json={"id_pago": "999"},
+        headers=cabecera_usuario,
+    )
+
+    assert respuesta.status_code == 502
+    assert "Mercado Pago" in respuesta.json()["detail"]
+
+
+def test_cp35_pago_rechazado_deja_la_compra_pendiente_y_se_puede_reintentar(
+    client, cabecera_usuario, notificador
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    rechazado = pagar_en_checkout(client, compra["url_pago"], "OTHE")
+    respuesta = client.post(
+        f"/compras/{compra['id']}/pago",
+        json={"id_pago": id_de_pago(rechazado)},
+        headers=cabecera_usuario,
+    )
+
+    assert respuesta.json()["estado"] == "PENDIENTE_DE_PAGO"
+    assert notificador.enviados == []
+
+    # "Pagar con otra tarjeta" en el checkout: misma preferencia, otro pago.
+    aprobado = pagar_en_checkout(client, compra["url_pago"], "APRO")
+    respuesta = client.post(
+        f"/compras/{compra['id']}/pago",
+        json={"id_pago": id_de_pago(aprobado)},
+        headers=cabecera_usuario,
+    )
+
+    assert respuesta.json()["estado"] == "CONFIRMADA"
+    assert len(notificador.enviados) == 1

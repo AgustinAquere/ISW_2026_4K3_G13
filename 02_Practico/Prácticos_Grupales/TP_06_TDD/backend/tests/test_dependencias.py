@@ -1,13 +1,13 @@
 from app.adaptadores.notificador import NotificadorEmailLog, NotificadorSMTP
-from app.adaptadores.pasarela_pago import (
-    PasarelaMercadoPago,
-    PasarelaMercadoPagoSimulada,
-)
+from app.adaptadores.pasarela_pago import PasarelaMercadoPago
 from app.dependencias import (
     crear_notificador,
     crear_pasarela_pago,
     usuarios_registrados,
 )
+from app.dominio.modelos import Compra, MedioPago, TipoPase
+from app.mercado_pago_simulado.nucleo import MercadoPagoSimulado
+from tests.fechas import FECHA_VISITA
 
 CONFIGURACION_SMTP = {
     "SMTP_HOST": "smtp.ejemplo.com",
@@ -23,8 +23,25 @@ def test_con_access_token_se_usa_mercado_pago():
     assert isinstance(pasarela, PasarelaMercadoPago)
 
 
-def test_sin_access_token_se_simula_mercado_pago():
-    assert isinstance(crear_pasarela_pago({}), PasarelaMercadoPagoSimulada)
+def test_sin_access_token_se_usa_el_mercado_pago_simulado():
+    simulador = MercadoPagoSimulado("http://127.0.0.1:8000/")
+    compra = Compra(
+        email_usuario="visitante@ecoharmony.com",
+        fecha_visita=FECHA_VISITA,
+        cantidad=1,
+        edades=[30],
+        tipo_pase=TipoPase.REGULAR,
+        medio_pago=MedioPago.TARJETA,
+        total=10000,
+        id=1,
+    )
+
+    url = crear_pasarela_pago({}, simulador).crear_pago(compra)
+
+    assert url.startswith(
+        "http://127.0.0.1:8000/mercadopago-simulado/checkout?pref_id="
+    )
+    assert len(simulador.preferencias_creadas()) == 1
 
 
 def test_con_servidor_smtp_se_envian_mails_reales():

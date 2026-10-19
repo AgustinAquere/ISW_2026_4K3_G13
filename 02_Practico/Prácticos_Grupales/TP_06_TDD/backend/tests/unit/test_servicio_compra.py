@@ -150,25 +150,26 @@ def test_total_de_la_compra_suma_el_precio_de_cada_visitante(servicio):
 
 
 def test_cp23_pago_en_boleteria_procesa_la_compra_sin_redirigir(
-    servicio, pasarela_pago
+    servicio, mercado_pago_simulado
 ):
     compra = servicio.comprar(solicitud(medio_pago=MedioPago.EFECTIVO))
 
     assert compra.url_pago is None
-    assert pasarela_pago.pagos_creados == []
+    assert mercado_pago_simulado.preferencias_creadas() == []
 
 
 def test_cp24_pago_con_tarjeta_redirige_a_mercado_pago(
-    servicio, pasarela_pago
+    servicio, mercado_pago_simulado
 ):
     compra = servicio.comprar(solicitud(medio_pago=MedioPago.TARJETA))
 
-    assert compra.url_pago is not None
-    assert pasarela_pago.pagos_creados == [compra]
+    (preferencia,) = mercado_pago_simulado.preferencias_creadas()
+    assert compra.url_pago == preferencia["init_point"]
+    assert preferencia["external_reference"] == str(compra.id)
 
 
 def test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago(
-    servicio, pasarela_pago
+    servicio, mercado_pago_simulado
 ):
     # Mercado Pago no acepta cobros de $0: los menores de 4 años no pagan.
     compra = servicio.comprar(
@@ -177,7 +178,7 @@ def test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago(
 
     assert compra.total == 0
     assert compra.url_pago is None
-    assert pasarela_pago.pagos_creados == []
+    assert mercado_pago_simulado.preferencias_creadas() == []
 
 
 def test_cp29_compra_con_tarjeta_queda_pendiente_de_pago_sin_mail(
