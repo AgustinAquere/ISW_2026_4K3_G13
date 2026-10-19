@@ -37,8 +37,37 @@ function mostrarPantalla() {
   const email = sesionEnMemoria;
   $("pantalla-ingreso").hidden = Boolean(email);
   $("pantalla-compra").hidden = !email;
+  $("pantalla-confirmacion").hidden = true;
   $("sesion").hidden = !email;
   $("sesion-email").textContent = email || "";
+}
+
+// Pantalla propia para la compra confirmada (pago aprobado, efectivo o sin
+// costo), con el resumen de la compra (cantidad de entradas y fecha) y el
+// botón para volver al inicio del flujo.
+function mostrarConfirmacion(compra, { titulo, etiquetaTotal, pago = "" }) {
+  if ($("dialogo").open) $("dialogo").close();
+  $("pantalla-ingreso").hidden = true;
+  $("pantalla-compra").hidden = true;
+  $("confirmacion-titulo").textContent = titulo;
+  $("confirmacion-resumen").textContent = `${compra.mensaje}.`;
+  $("confirmacion-numero").textContent = compra.id;
+  $("confirmacion-pase").textContent = compra.tipo_pase === "VIP" ? "VIP" : "Regular";
+  $("confirmacion-total-etiqueta").textContent = etiquetaTotal;
+  $("confirmacion-total").textContent = pesos.format(compra.total);
+  $("confirmacion-pago").textContent = pago;
+  $("confirmacion-pago").hidden = !pago;
+  $("confirmacion-mail").textContent = `Te enviamos un mail de confirmación a ${sesionEnMemoria}.`;
+  $("pantalla-confirmacion").hidden = false;
+  window.scrollTo(0, 0);
+  $("volver-al-inicio").focus();
+}
+
+function mostrarPagoAprobado(compra) {
+  mostrarConfirmacion(compra, {
+    titulo: "¡Pago aprobado!",
+    etiquetaTotal: "Total pagado",
+  });
 }
 
 $("form-ingreso").addEventListener("submit", (evento) => {
@@ -254,22 +283,27 @@ function abrirDialogo({ titulo, mensaje, detalle = "", mail = null, urlPago = nu
 }
 
 function mostrarCompra(compra) {
-  const pase = compra.tipo_pase === "VIP" ? "VIP" : "Regular";
-  const pendiente = compra.estado === "PENDIENTE_DE_PAGO";
-  let pago = "Pagás en la boletería del parque el día de tu visita.";
-  if (compra.medio_pago === "TARJETA") {
-    pago = pendiente
-      ? "Completá el pago con Mercado Pago: te enviamos el mail de confirmación cuando se apruebe."
-      : "No tenés nada para pagar.";
+  if (compra.estado !== "PENDIENTE_DE_PAGO") {
+    // En efectivo o sin costo, la compra ya quedó confirmada.
+    const enEfectivo = compra.medio_pago === "EFECTIVO";
+    mostrarConfirmacion(compra, {
+      titulo: "¡Compra confirmada!",
+      etiquetaTotal: enEfectivo ? "Total a pagar" : "Total",
+      pago: enEfectivo
+        ? "Pagás en la boletería del parque el día de tu visita."
+        : "Tu compra no tiene costo.",
+    });
+    compraEnEspera = null;
+    return;
   }
+  const pase = compra.tipo_pase === "VIP" ? "VIP" : "Regular";
   abrirDialogo({
-    titulo: pendiente ? "¡Compra registrada!" : "¡Compra confirmada!",
+    titulo: "¡Compra registrada!",
     mensaje: `${compra.mensaje}.`,
-    detalle: `Pase ${pase} · Total ${pesos.format(compra.total)}. ${pago}`,
-    mail: pendiente ? null : sesionEnMemoria,
-    urlPago: pendiente ? compra.url_pago : null,
+    detalle: `Pase ${pase} · Total ${pesos.format(compra.total)}. Completá el pago con Mercado Pago: te enviamos el mail de confirmación cuando se apruebe.`,
+    urlPago: compra.url_pago,
   });
-  compraEnEspera = pendiente ? compra : null;
+  compraEnEspera = compra;
   $("dialogo-pagar").textContent = "Pagar con Mercado Pago";
 }
 
@@ -389,12 +423,7 @@ async function verificarPago() {
       compraEnEspera = null;
       guardarCompraPendiente(null);
       clearInterval(temporizadorDePago);
-      abrirDialogo({
-        titulo: "¡Pago aprobado!",
-        mensaje: `${datos.mensaje}. Tus entradas están confirmadas.`,
-        detalle: `Compra n.º ${datos.id} · Total ${pesos.format(datos.total)}.`,
-        mail: sesionEnMemoria,
-      });
+      mostrarPagoAprobado(datos);
     } else if (datos.pago === "rechazado") {
       $("dialogo-titulo").textContent = "Pago rechazado";
       $("dialogo-mensaje").textContent =
@@ -453,12 +482,7 @@ async function informarVueltaDeMercadoPago() {
   try {
     const compra = await confirmarPago(idCompra, idPago);
     if (compra.estado === "CONFIRMADA") {
-      abrirDialogo({
-        titulo: "¡Pago aprobado!",
-        mensaje: `${compra.mensaje}. Tus entradas están confirmadas.`,
-        detalle: `${detalle} Total ${pesos.format(compra.total)}.`,
-        mail: sesionEnMemoria,
-      });
+      mostrarPagoAprobado(compra);
       return;
     }
     const [titulo, mensaje] = ESTADOS_DE_PAGO[estado] || [
