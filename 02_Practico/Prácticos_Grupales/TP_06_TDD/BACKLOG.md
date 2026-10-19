@@ -70,6 +70,7 @@ Documentar los casos de prueba definidos para el sistema de compra de entradas, 
 | CP-33 | Confirmar dos veces el mismo pago (por ejemplo, recargando la página) | Se envía un solo correo | Refactorizado | `test_servicio_compra::test_cp33_*` |
 | CP-34 | Comprar con tarjeta cuando Mercado Pago no está disponible | La compra se anula (502) y no cuenta para el límite de 10 entradas por fecha | Refactorizado | `test_servicio_compra::test_cp34_*`, `test_api_compras::test_api_informa_si_mercado_pago_no_esta_disponible` |
 | CP-35 | Pago rechazado en el checkout (titular `OTHE`) y reintento con otra tarjeta | La compra sigue pendiente y sin mail; con el reintento aprobado se confirma y se envía un solo mail | Refactorizado | `test_api_compras::test_cp35_*` |
+| CP-37 | Un pago aprobado de otra compra con el mismo número y total (otra base u otro integrante con las mismas credenciales) | La compra no se confirma: el pago se busca por una referencia única de la compra | Refactorizado | `test_api_compras::test_cp37_*`, `test_servicio_compra::test_cp37_*` |
 | CP-36 | Pagar en otra pestaña y volver a la pestaña del sitio | El sitio verifica el pago por el número de compra, confirma la compra, informa cantidad y fecha y envía el mail | Refactorizado | `test_servicio_compra::test_cp36_*`, `test_api_compras::test_cp36_*`, `test_api_verificacion_*` |
 
 ### 6. Confirmación de la compra
