@@ -58,7 +58,11 @@
             <button type="button" class="boton-redondo" id="mas" aria-label="Agregar una entrada">+</button>
           </div>
           <div id="edades" class="edades"></div>
-          <p class="ayuda">Hasta 3 años no pagan. De 4 a 15 años y desde los 60, 50 % de descuento.</p>
+          <ul class="descuentos" aria-label="Descuentos por edad">
+            <li><span>Hasta 3 años</span><strong>Gratis</strong></li>
+            <li><span>De 4 a 15 años</span><strong>50 % de descuento</strong></li>
+            <li><span>60 años o más</span><strong>50 % de descuento</strong></li>
+          </ul>
         </fieldset>
 
         <fieldset>
@@ -97,6 +101,22 @@
         <p class="error" id="error-compra" role="alert"></p>
         <button type="submit" class="boton" id="confirmar">Confirmar compra</button>
       </form>
+    </section>
+
+    <section id="pantalla-pago-aprobado" class="tarjeta confirmacion" hidden>
+      <div class="icono-aprobado" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h1>¡Pago aprobado!</h1>
+      <p class="resumen" id="aprobado-resumen"></p>
+      <dl class="detalle-compra">
+        <div><dt>Compra n.º</dt><dd id="aprobado-numero"></dd></div>
+        <div><dt>Pase</dt><dd id="aprobado-pase"></dd></div>
+        <div><dt>Total pagado</dt><dd id="aprobado-total"></dd></div>
+      </dl>
+      <p class="aviso-mail" id="aprobado-mail"></p>
+      <p class="ayuda">Tus entradas se verifican al ingresar al parque.</p>
+      <a href="/" class="boton" id="volver-al-inicio">Volver al inicio</a>
     </section>
   </main>
 

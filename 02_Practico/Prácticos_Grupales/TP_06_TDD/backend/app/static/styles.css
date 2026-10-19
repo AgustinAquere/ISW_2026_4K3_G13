@@ -123,6 +123,63 @@ a:focus-visible,
 
 .ayuda { color: var(--gris); font-size: 0.9rem; margin: 4px 0 10px; }
 
+/* Descuentos por edad: un renglón por rango. */
+.descuentos {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 0.9rem;
+}
+
+.descuentos li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgb(56 102 65 / 25%);
+}
+
+.descuentos li:last-child { border-bottom: none; }
+.descuentos span { color: var(--gris); }
+.descuentos strong { color: var(--verde-oscuro); }
+
+/* Pantalla de pago aprobado. */
+.confirmacion { text-align: center; }
+
+.icono-aprobado {
+  width: 72px;
+  height: 72px;
+  margin: 4px auto 16px;
+  border-radius: 50%;
+  background: var(--verde);
+  color: var(--blanco);
+}
+
+.icono-aprobado svg { width: 100%; height: 100%; padding: 16px; }
+
+.confirmacion .resumen {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+
+.detalle-compra {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--crema);
+  text-align: left;
+}
+
+.detalle-compra div { display: flex; justify-content: space-between; gap: 12px; }
+.detalle-compra dt { color: var(--gris); }
+.detalle-compra dd { margin: 0; font-weight: 700; }
+
+.confirmacion .aviso-mail { text-align: left; }
+.confirmacion .boton { display: block; margin-top: 16px; text-decoration: none; }
+
 .seleccion { font-weight: 700; margin: 10px 0 0; }
 
 /* Calendario en línea: los días cerrados aparecen deshabilitados (FAQ 2). */
