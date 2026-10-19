@@ -69,6 +69,8 @@ Documentar los casos de prueba definidos para el sistema de compra de entradas, 
 | CP-32 | Informar un pago que es de otra compra o por otro monto | Se rechaza la confirmación (400) | Refactorizado | `test_servicio_compra::test_cp32_*[CP-32-otra-compra]`, `[CP-32-otro-monto]`, `test_api_compras::test_confirmar_un_pago_que_no_corresponde_*` |
 | CP-33 | Confirmar dos veces el mismo pago (por ejemplo, recargando la página) | Se envía un solo correo | Refactorizado | `test_servicio_compra::test_cp33_*` |
 | CP-34 | Comprar con tarjeta cuando Mercado Pago no está disponible | La compra se anula (502) y no cuenta para el límite de 10 entradas por fecha | Refactorizado | `test_servicio_compra::test_cp34_*`, `test_api_compras::test_api_informa_si_mercado_pago_no_esta_disponible` |
+| CP-35 | Pago rechazado en el checkout (titular `OTHE`) y reintento con otra tarjeta | La compra sigue pendiente y sin mail; con el reintento aprobado se confirma y se envía un solo mail | Refactorizado | `test_api_compras::test_cp35_*` |
+| CP-36 | Pagar en otra pestaña y volver a la pestaña del sitio | El sitio verifica el pago por el número de compra, confirma la compra, informa cantidad y fecha y envía el mail | Refactorizado | `test_servicio_compra::test_cp36_*`, `test_api_compras::test_cp36_*`, `test_api_verificacion_*` |
 
 ### 6. Confirmación de la compra
 
@@ -94,6 +96,9 @@ Documentar los casos de prueba definidos para el sistema de compra de entradas, 
 | Mercado Pago simulado | Sin credenciales, el pago vuelve al sitio aprobado (FAQ 4) | `test_pasarela_simulada::*` |
 | Confirmación del pago por la API | `POST /compras/{id}/pago`: sin sesión 401, compra inexistente o de otro usuario 404, Mercado Pago caído 502 | `test_api_compras::test_confirmar_*`, `test_api_informa_si_no_se_puede_consultar_el_pago`, `test_servicio_compra::test_confirmar_*` |
 | Estado de la compra en SQLite | Se guarda, se actualiza y una base anterior recibe la columna nueva | `test_repositorios_sqlite::test_obtener_conserva_el_estado_*`, `test_actualizar_estado_*`, `test_una_base_anterior_*`, `test_servicio_confirma_el_pago_en_sqlite` |
+| Búsqueda de pagos por compra | `GET /v1/payments/search?external_reference=<compra>`: informa el aprobado o el más reciente (aprobado, rechazado o pendiente) | `test_pasarela_mercado_pago::test_busca_*`, `test_sin_pago*`, `test_si_hay_un_pago_aprobado_*`, `test_si_no_se_puede_buscar_*` |
+| Título del pago | La fecha va con palabras ("20 de octubre de 2026") porque Mercado Pago le quita las barras | `test_pasarela_mercado_pago::test_el_titulo_del_pago_escribe_la_fecha_con_palabras` |
+| Mercado Pago simulado | Titular → resultado, pagos correlativos, URL de vuelta con los parámetros reales, API con 401 y 404, búsqueda por referencia, una preferencia aprobada no acepta otro pago y el número de tarjeta no se acepta | `test_mercado_pago_simulado::*`, `test_api_mercado_pago_simulado::*`, `test_api_checkout_simulado::*` |
 | Mercado Pago no disponible | La API responde 502 con un mensaje claro | `test_pasarela_mercado_pago::test_si_mercado_pago_*`, `test_api_compras::test_api_informa_si_mercado_pago_no_esta_disponible` |
 | Compra con tarjeta de $0 | No se redirige a Mercado Pago | `test_servicio_compra::test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago` |
 | Mail por SMTP | Llega al usuario con número de compra, cantidad, fecha y total, e informa el pago (aprobado con Mercado Pago, en boletería o sin costo); si el envío falla, la compra no falla | `test_notificador_smtp::*` |

@@ -57,9 +57,9 @@ Se necesita una cuenta de Mercado Pago (puede ser la personal de un integrante).
 
 1. Reiniciar el servidor (`Ctrl+C` y de nuevo `uvicorn app.main:app --reload`): el `.env` se lee al iniciar. En la consola ya no deben aparecer los avisos "Sin SMTP_HOST" ni "Sin MP_ACCESS_TOKEN" al hacer la primera compra.
 2. Abrir `http://127.0.0.1:8000` e ingresar con el email registrado en el paso 0.
-3. Comprar con **tarjeta**. La compra queda pendiente de pago y el front muestra el botón para pagar con Mercado Pago.
+3. Comprar con **tarjeta**. La compra queda pendiente de pago y el front muestra el botón para pagar con Mercado Pago, que abre el checkout en **otra pestaña**. Hacer todo en la misma ventana de incógnito: la sesión del sitio queda guardada en esa ventana.
 4. Abrir el link de pago en una **ventana de incógnito**, iniciar sesión con el **comprador de prueba** (si pide un código por e-mail, es el de 6 dígitos que figura en *Cuentas de prueba*) y pagar con una [tarjeta de prueba](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro/integration-test/test-purchases). Por ejemplo, Mastercard `5031 7557 3453 0604`, código `123`, vencimiento `11/30`, DNI `12345678` y como titular **`APRO`** (pago aprobado). El titular define el resultado: `OTHE` lo rechaza, `CONT` lo deja pendiente y `FUND` lo rechaza por saldo insuficiente.
-5. Al terminar, tocar **Volver al sitio**. El front envía el pago al backend, que lo consulta a Mercado Pago, confirma la compra y envía el mail.
+5. Al terminar, volver a la **pestaña del sitio**. El sitio le pregunta al backend si la compra ya se pagó; el backend busca el pago en Mercado Pago, confirma la compra y envía el mail. Mercado Pago no vuelve solo al sitio con una dirección local (`auto_return` exige `https`).
 6. Revisar la casilla del email con el que se compró (y la carpeta de spam).
 
 Una compra en **efectivo** envía el mail en el momento, sin pasar por Mercado Pago: es la forma más rápida de probar solo el mail.
