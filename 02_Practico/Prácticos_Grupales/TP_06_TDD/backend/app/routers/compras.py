@@ -7,6 +7,7 @@ from app.dependencias import obtener_reloj, obtener_servicio_compra
 from app.dominio.calendario import fechas_disponibles
 from app.dominio.errores import (
     CompraInvalidaError,
+    CompraNoEncontradaError,
     PagoNoDisponibleError,
     UsuarioNoRegistradoError,
 )
@@ -15,6 +16,7 @@ from app.dominio.precios import calcular_precio_entrada
 from app.schemas import (
     CompraRequest,
     CompraResponse,
+    ConfirmacionPagoRequest,
     CotizacionRequest,
     CotizacionResponse,
     FechasDisponiblesResponse,
@@ -56,6 +58,36 @@ def comprar_entradas(
             "Intentá de nuevo más tarde.",
         ) from error
     return CompraResponse.desde_compra(resultado)
+
+
+@router.post("/compras/{id_compra}/pago", response_model=CompraResponse)
+def confirmar_pago(
+    id_compra: int,
+    confirmacion: ConfirmacionPagoRequest,
+    servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
+    x_usuario_email: Annotated[str | None, Header()] = None,
+):
+    if x_usuario_email is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Debe iniciar sesión"
+        )
+    try:
+        compra = servicio.confirmar_pago(
+            x_usuario_email, id_compra, confirmacion.id_pago
+        )
+    except CompraNoEncontradaError as error:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Compra no encontrada"
+        ) from error
+    except CompraInvalidaError as error:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
+    except PagoNoDisponibleError as error:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "No se pudo consultar el pago con Mercado Pago. "
+            "Intentá de nuevo más tarde.",
+        ) from error
+    return CompraResponse.desde_compra(compra)
 
 
 @router.get("/fechas-disponibles", response_model=FechasDisponiblesResponse)

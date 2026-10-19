@@ -40,6 +40,10 @@ class CompraResponse(BaseModel):
         )
 
 
+class ConfirmacionPagoRequest(BaseModel):
+    id_pago: str
+
+
 class CotizacionRequest(BaseModel):
     edades: list[Annotated[int, Field(ge=0)]]
     tipo_pase: TipoPase
