@@ -30,7 +30,11 @@
   <main>
     <section id="pantalla-ingreso" class="tarjeta" hidden>
       <h1>Ingresá para comprar</h1>
-      <p class="ayuda">Sesión simulada: ingresá el email de un usuario registrado.</p>
+      <div class="cartel-registro" role="note">
+        <p><strong>Solo se puede comprar con correos registrados.</strong></p>
+        <p>El único correo registrado es <strong>visitante@ecoharmony.com</strong>. Con cualquier otro correo, la compra da error.</p>
+      </div>
+      <p class="ayuda">Sesión simulada: no hace falta contraseña.</p>
       <form id="form-ingreso" novalidate>
         <label for="email">Email</label>
         <input id="email" type="email" autocomplete="email" required placeholder="tu@email.com">

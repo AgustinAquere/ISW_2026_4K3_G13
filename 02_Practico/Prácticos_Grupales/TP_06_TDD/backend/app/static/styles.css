@@ -340,6 +340,19 @@ a:focus-visible,
 
 .dialogo h2 { margin: 0 0 8px; color: var(--verde-oscuro); font-weight: 900; }
 
+/* Cartel de la pantalla de ingreso: solo compran los correos registrados. */
+.cartel-registro {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-left: 4px solid var(--verde-oscuro);
+  border-radius: 10px;
+  background: var(--crema);
+  overflow-wrap: anywhere;
+}
+
+.cartel-registro p { margin: 0; }
+.cartel-registro p + p { margin-top: 6px; }
+
 .aviso-mail {
   padding: 10px 12px;
   border-radius: 10px;
