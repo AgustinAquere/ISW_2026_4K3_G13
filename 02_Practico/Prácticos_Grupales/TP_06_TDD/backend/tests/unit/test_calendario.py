@@ -1,4 +1,4 @@
-from datetime import time, timedelta
+from datetime import date, time, timedelta
 
 import pytest
 
@@ -8,6 +8,7 @@ from tests.fechas import (
     AHORA,
     FECHA_VISITA,
     HOY,
+    LUNES,
     LUNES_PROXIMO,
     UN_DIA,
     a_las,
@@ -49,6 +50,30 @@ def test_feriado_en_que_cierra_el_parque_es_rechazado(mes, dia):
         validar_fecha_visita(feriado, unos_dias_antes)
 
 
+def proxima_fecha_que_no_cae_lunes(mes, dia):
+    """Próximo (mes, día) futuro que no es lunes.
+
+    Así la prueba solo evalúa la regla de los feriados y no la de los lunes.
+    """
+    fecha = date(HOY.year, mes, dia)
+    while fecha <= HOY or fecha.weekday() == LUNES:
+        fecha = fecha.replace(year=fecha.year + 1)
+    return fecha
+
+
+@pytest.mark.parametrize(
+    "mes, dia",
+    [(12, 24), (12, 26), (12, 31), (1, 2)],
+    ids=["24-dic", "26-dic", "31-dic", "2-ene"],
+)
+def test_los_dias_vecinos_a_los_feriados_estan_abiertos(mes, dia):
+    # Valores límite de CP-14 y CP-15: solo cierran el 25/12 y el 1/1.
+    fecha = proxima_fecha_que_no_cae_lunes(mes, dia)
+    unos_dias_antes = a_las(fecha - timedelta(days=5), time(10, 0))
+
+    validar_fecha_visita(fecha, unos_dias_antes)
+
+
 def test_cp16_fecha_a_mas_de_31_dias_es_rechazada():
     with pytest.raises(CompraInvalidaError, match="31 días"):
         validar_fecha_visita(HOY + timedelta(days=32), AHORA)
@@ -66,6 +91,11 @@ def test_cp17_comprar_para_hoy_despues_de_las_17_30_es_rechazado():
 
 def test_cp17_comprar_para_hoy_a_las_17_30_es_aceptado():
     validar_fecha_visita(HOY, a_las(HOY, time(17, 30)))
+
+
+def test_cp17_despues_de_las_17_30_se_puede_comprar_para_otro_dia():
+    # La hora límite solo aplica a las entradas para el día actual.
+    validar_fecha_visita(FECHA_VISITA, a_las(HOY, time(23, 59)))
 
 
 def test_fecha_futura_con_parque_abierto_es_aceptada():

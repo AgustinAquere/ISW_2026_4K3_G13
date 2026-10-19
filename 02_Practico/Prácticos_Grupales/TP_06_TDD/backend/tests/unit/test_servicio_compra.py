@@ -128,6 +128,17 @@ def test_cp28_el_limite_se_cuenta_por_usuario(
     assert compra.email_usuario == otro_usuario
 
 
+def test_cp28_una_compra_pendiente_de_pago_cuenta_para_el_limite(servicio):
+    # Las entradas con el pago en curso quedan reservadas: solo las compras
+    # anuladas dejan de contar (DECISIONES_DE_DISENO.md, FAQ 27).
+    servicio.comprar(
+        solicitud(cantidad=6, edades=[30] * 6, medio_pago=MedioPago.TARJETA)
+    )
+
+    with pytest.raises(CompraInvalidaError, match="misma fecha"):
+        servicio.comprar(solicitud(cantidad=5, edades=[30] * 5))
+
+
 def test_compra_para_un_dia_cerrado_es_rechazada(servicio):
     with pytest.raises(CompraInvalidaError, match="cerrado"):
         servicio.comprar(solicitud(fecha_visita=LUNES_PROXIMO))
@@ -141,6 +152,13 @@ def test_cp18_edad_negativa_es_rechazada(servicio):
         servicio.comprar(solicitud(edades=[25, -1]))
 
 
+def test_cp18_edad_0_es_aceptada(servicio):
+    # Valor límite de CP-18: un bebé de meses se informa con edad 0.
+    compra = servicio.comprar(solicitud(edades=[25, 0]))
+
+    assert compra.edades == [25, 0]
+
+
 def test_total_de_la_compra_suma_el_precio_de_cada_visitante(servicio):
     # Adulto (precio completo) + niño de 10 (50 %) + bebé de 2 (gratis).
     compra = servicio.comprar(
@@ -148,6 +166,16 @@ def test_total_de_la_compra_suma_el_precio_de_cada_visitante(servicio):
     )
 
     assert compra.total == PRECIO_BASE[TipoPase.REGULAR] * 1.5
+
+
+def test_total_con_pase_vip_aplica_los_descuentos_por_edad(servicio):
+    # Adulto (completo) + niño de 10 (50 %) + bebé de 2 (gratis)
+    # + jubilado de 65 (50 %).
+    compra = servicio.comprar(
+        solicitud(cantidad=4, edades=[30, 10, 2, 65], tipo_pase=TipoPase.VIP)
+    )
+
+    assert compra.total == PRECIO_BASE[TipoPase.VIP] * 2
 
 
 # 5. Modalidades de pago
