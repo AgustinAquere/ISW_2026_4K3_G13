@@ -4,6 +4,7 @@ from app.adaptadores.repositorios import RepositorioUsuariosEnMemoria
 from app.dominio.errores import (
     CompraInvalidaError,
     CompraNoEncontradaError,
+    PagoNoDisponibleError,
     UsuarioNoRegistradoError,
 )
 from app.dominio.modelos import (
@@ -351,3 +352,56 @@ def test_confirmar_el_pago_de_una_compra_de_otro_usuario_es_rechazado(
         servicio.confirmar_pago(otro_usuario, compra.id, "pago-1")
 
     assert notificador.enviados == []
+
+
+# 8. Mercado Pago no disponible al crear el pago
+
+
+def mercado_pago_caido(compra):
+    raise PagoNoDisponibleError()
+
+
+def test_cp34_si_mercado_pago_no_esta_disponible_la_compra_se_anula(
+    servicio, pasarela_pago, compras, notificador, monkeypatch
+):
+    monkeypatch.setattr(pasarela_pago, "crear_pago", mercado_pago_caido)
+
+    with pytest.raises(PagoNoDisponibleError):
+        servicio.comprar(solicitud(medio_pago=MedioPago.TARJETA))
+
+    (compra,) = compras.listar()
+    assert compra.estado == EstadoCompra.ANULADA
+    assert notificador.enviados == []
+
+
+def test_cp34_una_compra_anulada_no_cuenta_para_el_limite_por_fecha(
+    servicio, pasarela_pago, monkeypatch
+):
+    with monkeypatch.context() as parche:
+        parche.setattr(pasarela_pago, "crear_pago", mercado_pago_caido)
+        with pytest.raises(PagoNoDisponibleError):
+            servicio.comprar(
+                solicitud(
+                    cantidad=6, edades=[30] * 6, medio_pago=MedioPago.TARJETA
+                )
+            )
+
+    compra = servicio.comprar(
+        solicitud(cantidad=6, edades=[30] * 6, medio_pago=MedioPago.TARJETA)
+    )
+
+    assert compra.estado == EstadoCompra.PENDIENTE_DE_PAGO
+
+
+def test_confirmar_el_pago_de_una_compra_anulada_es_rechazado(
+    servicio_mp, mercado_pago, compras
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    compra.estado = EstadoCompra.ANULADA
+    compras.actualizar_estado(compra)
+    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+
+    with pytest.raises(CompraInvalidaError, match="anulada"):
+        servicio_mp.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
+
+    assert mercado_pago.consultados == []

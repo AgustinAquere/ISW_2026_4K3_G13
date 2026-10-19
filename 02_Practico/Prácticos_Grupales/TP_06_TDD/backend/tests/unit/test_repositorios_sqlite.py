@@ -156,6 +156,16 @@ def test_entradas_compradas_suma_solo_las_del_usuario_y_la_fecha(conexion):
     assert compras.entradas_compradas(EMAIL_REGISTRADO, FECHA_VISITA) == 5
 
 
+def test_entradas_compradas_no_cuenta_las_compras_anuladas(conexion):
+    compras = RepositorioComprasSQLite(conexion)
+    compras.guardar(compra_nueva(cantidad=2, edades=[30, 30]))
+    compras.guardar(
+        compra_nueva(cantidad=3, edades=[30] * 3, estado=EstadoCompra.ANULADA)
+    )
+
+    assert compras.entradas_compradas(EMAIL_REGISTRADO, FECHA_VISITA) == 2
+
+
 def test_sin_compras_para_la_fecha_hay_0_entradas_compradas(conexion):
     compras = RepositorioComprasSQLite(conexion)
 
