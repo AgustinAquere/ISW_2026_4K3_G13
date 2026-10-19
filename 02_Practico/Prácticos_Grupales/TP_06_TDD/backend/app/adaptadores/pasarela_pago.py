@@ -1,5 +1,3 @@
-from urllib.parse import urlencode
-
 import httpx
 
 from app.dominio.errores import PagoNoDisponibleError
@@ -85,26 +83,3 @@ class PasarelaMercadoPago:
             id_compra=int(referencia) if referencia else None,
             monto=round(datos["transaction_amount"]),
         )
-
-
-class PasarelaMercadoPagoSimulada:
-    """Simula Mercado Pago: el pago vuelve al sitio aprobado (FAQ 4)."""
-
-    def __init__(self, url_retorno="/"):
-        self._url_retorno = url_retorno
-        self.pagos_creados = []
-
-    def crear_pago(self, compra):
-        self.pagos_creados.append(compra)
-        parametros = {
-            "collection_status": "approved",
-            "payment_id": f"SIMULADO-{compra.id}",
-            "external_reference": compra.id,
-        }
-        return f"{self._url_retorno}?{urlencode(parametros)}"
-
-    def consultar_pago(self, id_pago):
-        for compra in self.pagos_creados:
-            if id_pago == f"SIMULADO-{compra.id}":
-                return PagoInformado(id_pago, True, compra.id, compra.total)
-        return PagoInformado(id_pago, False, None, 0)
