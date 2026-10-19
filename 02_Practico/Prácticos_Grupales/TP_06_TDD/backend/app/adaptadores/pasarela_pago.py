@@ -20,11 +20,13 @@ class PasarelaMercadoPago:
         url_retorno,
         cliente=None,
         url_api=URL_API_MERCADO_PAGO,
+        email_comprador_prueba=None,
     ):
         self._access_token = access_token
         self._url_retorno = url_retorno
         self._cliente = cliente or httpx.Client(timeout=10)
         self._url_api = url_api
+        self._email_comprador_prueba = email_comprador_prueba
 
     def _cabeceras(self):
         return {"Authorization": f"Bearer {self._access_token}"}
@@ -49,6 +51,10 @@ class PasarelaMercadoPago:
         }
         if self._url_retorno.startswith("https://"):
             preferencia["auto_return"] = "approved"
+        if self._email_comprador_prueba:
+            # En modo prueba solo paga un comprador de prueba: el checkout
+            # trae su email completado.
+            preferencia["payer"] = {"email": self._email_comprador_prueba}
         try:
             respuesta = self._cliente.post(
                 f"{self._url_api}/checkout/preferences",

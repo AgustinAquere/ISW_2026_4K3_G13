@@ -42,11 +42,18 @@ def usuarios_registrados(configuracion):
     return [email.strip() for email in emails.split(",") if email.strip()]
 
 
-def crear_pasarela_pago(configuracion, simulador=None):
+def crear_pasarela_pago(configuracion, simulador=None, cliente=None):
     access_token = configuracion.get("MP_ACCESS_TOKEN")
     url_retorno = configuracion.get("URL_PUBLICA", URL_PUBLICA_POR_DEFECTO)
     if access_token:
-        return PasarelaMercadoPago(access_token, url_retorno)
+        return PasarelaMercadoPago(
+            access_token,
+            url_retorno,
+            cliente,
+            email_comprador_prueba=configuracion.get(
+                "MP_EMAIL_COMPRADOR_PRUEBA"
+            ),
+        )
     logger.warning("Sin MP_ACCESS_TOKEN: se usa el Mercado Pago simulado")
     simulador = simulador or obtener_mercado_pago_simulado()
     # La misma pasarela que en el modo real, hablándole al simulador
