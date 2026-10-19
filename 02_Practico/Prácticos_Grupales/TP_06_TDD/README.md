@@ -27,6 +27,7 @@ El objetivo es desarrollar un sistema de compra de entradas para un parque, apli
 - `backend/tests/`: pruebas de la API.
 - `CONSIGNA.md`: consigna del TP 6 y User Story asignada.
 - `FAQ_PO.md`: respuestas del PO que aclaran el dominio (precios, días de cierre, límites).
+- `CONFIGURACION_CREDENCIALES.md`: paso a paso para enviar mails reales y usar Mercado Pago en modo prueba.
 - `BACKLOG.md`: casos de prueba y su estado.
 - `DECISIONES_DE_DISENO.md`: justificación del diseño y supuestos.
 - `CICLO_TDD.md`: registro de los ciclos Red-Green-Refactor y verificación de las pruebas (mutaciones).
@@ -44,6 +45,8 @@ py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
+
+Si `pip install` falla al compilar paquetes (`failed-wheel-build-for-install`), puede ser que `py` haya elegido una versión experimental de Python (por ejemplo, `3.13t`). Ver las versiones instaladas con `py -0p`, borrar la carpeta `.venv` y crearla con una versión normal: `py -3.13 -m venv .venv`.
 
 ### Linux / WSL
 
@@ -67,13 +70,13 @@ En cada nueva terminal hay que volver a activar el entorno (`.\.venv\Scripts\Act
 
 ### Credenciales de Mercado Pago y del mail
 
-Copiar `backend/.env.example` como `backend/.env` y completarlo. El archivo `.env` está excluido del repositorio: **nunca subir credenciales**.
+Copiar `backend/.env.example` como `backend/.env` y completarlo. El archivo `.env` está excluido del repositorio: **nunca subir credenciales**. El paso a paso completo (crear la cuenta de Gmail y la contraseña de aplicación, crear la aplicación de Mercado Pago y probar el flujo) está en [CONFIGURACION_CREDENCIALES.md](CONFIGURACION_CREDENCIALES.md).
 
 - **Mercado Pago:** en el [panel de desarrolladores](https://www.mercadopago.com.ar/developers/panel/app), crear una aplicación de Checkout Pro y copiar el *Access Token* de las credenciales de prueba en `MP_ACCESS_TOKEN`. Para pagar se usan las [tarjetas de prueba](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro/additional-content/your-integrations/test/cards) de Mercado Pago.
 - **Mail:** completar `SMTP_HOST`, `SMTP_PUERTO`, `SMTP_USUARIO` y `SMTP_CONTRASENA`. Con Gmail: `smtp.gmail.com`, puerto `587` y una [contraseña de aplicación](https://myaccount.google.com/apppasswords) (no la contraseña de la cuenta).
 - **Usuarios registrados:** `USUARIOS_REGISTRADOS` lista los emails que pueden comprar, separados por coma. Para recibir el mail de confirmación hay que ingresar en el front con uno de esos emails, y que sea una casilla real.
 
-Si `MP_ACCESS_TOKEN` o `SMTP_HOST` quedan vacíos, la aplicación usa la versión simulada (lo indica en la consola al hacer la primera compra): Mercado Pago devuelve un link de ejemplo y el mail se escribe en el log.
+Si `MP_ACCESS_TOKEN` o `SMTP_HOST` quedan vacíos, la aplicación usa la versión simulada (lo indica en la consola al hacer la primera compra): el link de pago vuelve al sitio con el pago aprobado (FAQ 4) y el mail se escribe en el log.
 
 ## Ejecutar la aplicación
 
@@ -93,10 +96,10 @@ Ejemplo desde una terminal de Linux con `curl`:
 curl -X POST http://127.0.0.1:8000/compras \
   -H "Content-Type: application/json" \
   -H "X-Usuario-Email: visitante@ecoharmony.com" \
-  -d '{"fecha_visita": "2026-11-15", "cantidad": 2, "edades": [40, 8], "tipo_pase": "REGULAR", "medio_pago": "TARJETA"}'
+  -d '{"fecha_visita": "AAAA-MM-DD", "cantidad": 2, "edades": [40, 8], "tipo_pase": "REGULAR", "medio_pago": "TARJETA"}'
 ```
 
-La fecha de visita debe estar entre hoy y los próximos 31 días, y no puede ser lunes.
+La fecha de visita debe estar entre hoy y los próximos 31 días, y no puede ser lunes ni feriado de cierre: `GET /fechas-disponibles` lista las fechas válidas. Con tarjeta, la compra queda pendiente de pago; al volver de Mercado Pago, el front confirma el pago con `POST /compras/{id}/pago` y recién entonces se envía el mail.
 
 ## Ejecutar las pruebas
 
@@ -109,10 +112,10 @@ ruff check app tests
 
 ## Metodología de trabajo
 
-Se aplicará TDD siguiendo el ciclo:
+Se aplicó TDD siguiendo el ciclo:
 
 1. **Red:** escribir una prueba que falle.
 2. **Green:** implementar el mínimo código necesario para que pase.
 3. **Refactor:** mejorar el código manteniendo las pruebas aprobadas.
 
-Las funcionalidades se desarrollarán de forma incremental y se validarán mediante pruebas automatizadas.
+Las funcionalidades se desarrollaron de forma incremental y se validaron mediante pruebas automatizadas. El registro de cada ciclo está en [CICLO_TDD.md](CICLO_TDD.md), y desde el ciclo 7 los pasos se registran en commits separados (`Red: ...`, `Green: ...`, `Refactor: ...`); los ciclos 9 a 12 se agruparon en un solo commit Red y uno Green.
