@@ -5,6 +5,7 @@ from pathlib import Path
 from string import Template
 
 from app.dominio.modelos import MedioPago
+from app.dominio.precios import calcular_precio_entrada
 
 RUTA_APP = Path(__file__).resolve().parent.parent
 PLANTILLA_HTML = RUTA_APP / "plantillas" / "mail_confirmacion.html"
@@ -76,7 +77,11 @@ class NotificadorSMTP:
 
 
 def _cuerpo_del_mail(compra):
-    total = f"${compra.total:,}".replace(",", ".")
+    _, etiqueta_total, _ = _datos_del_pago(compra)
+    entradas = "".join(
+        f"Entrada {numero}: {_edad(edad)}, {_precio(precio)}\n"
+        for numero, edad, precio in _entradas(compra)
+    )
     if compra.total == 0:
         pago = "Tu compra no tiene costo."
     elif compra.medio_pago == MedioPago.TARJETA:
@@ -88,7 +93,10 @@ def _cuerpo_del_mail(compra):
         f"Compra n.º {compra.id}\n"
         f"{compra.resumen()}.\n"
         f"Pase: {compra.tipo_pase.value}\n"
-        f"Total: {total}\n"
+        f"Medio de pago: {_medio_de_pago(compra)}\n\n"
+        f"Detalle de la compra:\n"
+        f"{entradas}"
+        f"{etiqueta_total}: {_pesos(compra.total)}\n\n"
         f"{pago}\n\n"
         f"Tus entradas se verifican al ingresar al parque.\n"
         f"EcoHarmony Park"
@@ -108,6 +116,49 @@ def _datos_del_pago(compra):
     )
 
 
+def _medio_de_pago(compra):
+    if compra.total == 0:
+        # Con tarjeta y sin costo no se pasa por Mercado Pago.
+        return "Sin pago (compra sin costo)"
+    if compra.medio_pago == MedioPago.TARJETA:
+        return "Tarjeta (Mercado Pago)"
+    return "Efectivo (en boletería)"
+
+
+def _entradas(compra):
+    """Número, edad y precio de cada entrada, con los precios del dominio."""
+    return [
+        (numero, edad, calcular_precio_entrada(edad, compra.tipo_pase))
+        for numero, edad in enumerate(compra.edades, start=1)
+    ]
+
+
+def _pesos(monto):
+    return f"${monto:,}".replace(",", ".")
+
+
+def _precio(precio):
+    return "Gratis" if precio == 0 else _pesos(precio)
+
+
+def _edad(edad):
+    return "1 año" if edad == 1 else f"{edad} años"
+
+
+ESTILO_CELDA = 'style="padding:8px 0;border-bottom:1px solid #f2e8cf;"'
+
+
+def _filas_de_entradas(compra):
+    return "".join(
+        "<tr>"
+        f"<td {ESTILO_CELDA}>Entrada {numero}</td>"
+        f"<td {ESTILO_CELDA}>{escape(_edad(edad))}</td>"
+        f'<td align="right" {ESTILO_CELDA}>{escape(_precio(precio))}</td>'
+        "</tr>"
+        for numero, edad, precio in _entradas(compra)
+    )
+
+
 def _cuerpo_html(compra):
     titulo, etiqueta_total, pago = _datos_del_pago(compra)
     bloque_pago = (
@@ -123,7 +174,9 @@ def _cuerpo_html(compra):
         resumen=escape(compra.resumen()),
         numero=compra.id,
         pase="VIP" if compra.tipo_pase.value == "VIP" else "Regular",
+        medio_pago=escape(_medio_de_pago(compra)),
+        filas_entradas=_filas_de_entradas(compra),
         etiqueta_total=escape(etiqueta_total),
-        total=escape(f"${compra.total:,}".replace(",", ".")),
+        total=escape(_pesos(compra.total)),
         bloque_pago=bloque_pago,
     )

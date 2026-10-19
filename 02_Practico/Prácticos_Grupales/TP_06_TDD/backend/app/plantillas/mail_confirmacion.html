@@ -29,16 +29,29 @@
               <p style="margin:0 0 20px;font-size:17px;font-weight:700;">$resumen.</p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f2e8cf;border-radius:10px;text-align:left;">
                 <tr>
-                  <td style="padding:12px 16px 4px;color:#5b6656;">Compra n.º</td>
+                  <td style="padding:12px 16px 4px;color:#5b6656;white-space:nowrap;">Compra n.º</td>
                   <td align="right" style="padding:12px 16px 4px;font-weight:700;">$numero</td>
                 </tr>
                 <tr>
-                  <td style="padding:4px 16px;color:#5b6656;">Pase</td>
+                  <td style="padding:4px 16px;color:#5b6656;white-space:nowrap;">Pase</td>
                   <td align="right" style="padding:4px 16px;font-weight:700;">$pase</td>
                 </tr>
                 <tr>
-                  <td style="padding:4px 16px 12px;color:#5b6656;">$etiqueta_total</td>
-                  <td align="right" style="padding:4px 16px 12px;font-weight:700;">$total</td>
+                  <td style="padding:4px 16px 12px;color:#5b6656;white-space:nowrap;">Medio de pago</td>
+                  <td align="right" style="padding:4px 16px 12px;font-weight:700;">$medio_pago</td>
+                </tr>
+              </table>
+              <h2 style="margin:24px 0 4px;text-align:left;color:#386641;font-size:17px;font-weight:900;">Detalle de la compra</h2>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="text-align:left;border-collapse:collapse;">
+                <tr>
+                  <th align="left" style="padding:8px 0;color:#5b6656;font-size:13px;font-weight:700;border-bottom:2px solid #a7c957;">Entrada</th>
+                  <th align="left" style="padding:8px 0;color:#5b6656;font-size:13px;font-weight:700;border-bottom:2px solid #a7c957;">Edad</th>
+                  <th align="right" style="padding:8px 0;color:#5b6656;font-size:13px;font-weight:700;border-bottom:2px solid #a7c957;">Precio</th>
+                </tr>
+                $filas_entradas
+                <tr>
+                  <td colspan="2" style="padding:12px 0 0;font-weight:900;color:#386641;">$etiqueta_total</td>
+                  <td align="right" style="padding:12px 0 0;font-weight:900;color:#386641;font-size:18px;">$total</td>
                 </tr>
               </table>
               $bloque_pago
