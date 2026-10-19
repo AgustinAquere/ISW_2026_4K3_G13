@@ -40,20 +40,36 @@ class ServicioCompra:
         return compra
 
     def confirmar_pago(self, email_usuario, id_compra, id_pago):
+        compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
+        if compra.estado == EstadoCompra.CONFIRMADA:
+            return compra
+        self._aplicar_pago(compra, self._pasarela_pago.consultar_pago(id_pago))
+        return compra
+
+    def verificar_pago(self, email_usuario, id_compra):
+        """Busca el pago por el número de compra (pago en otra pestaña)."""
+        compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
+        if compra.estado == EstadoCompra.CONFIRMADA:
+            return compra, None
+        pago = self._pasarela_pago.buscar_pago(compra.id)
+        if pago is not None:
+            self._aplicar_pago(compra, pago)
+        return compra, pago
+
+    def _compra_con_pago_pendiente(self, email_usuario, id_compra):
         compra = self._compras.obtener(id_compra)
         if compra is None or compra.email_usuario != email_usuario:
             raise CompraNoEncontradaError()
-        if compra.estado == EstadoCompra.CONFIRMADA:
-            return compra
         if compra.estado == EstadoCompra.ANULADA:
             raise CompraInvalidaError("La compra fue anulada")
-        pago = self._pasarela_pago.consultar_pago(id_pago)
+        return compra
+
+    def _aplicar_pago(self, compra, pago):
         if pago.id_compra != compra.id or pago.monto != compra.total:
             raise CompraInvalidaError("El pago no corresponde a la compra")
         if pago.aprobado:
             self._cambiar_estado(compra, EstadoCompra.CONFIRMADA)
             self._notificador.enviar_confirmacion(compra)
-        return compra
 
     def _iniciar_pago(self, compra):
         try:
