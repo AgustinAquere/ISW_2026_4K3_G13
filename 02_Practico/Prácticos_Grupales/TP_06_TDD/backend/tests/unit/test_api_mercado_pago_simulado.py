@@ -128,7 +128,9 @@ def test_la_pasarela_informa_el_pago_del_simulador(
 
     informado = pasarela.consultar_pago(str(pago["id"]))
 
-    assert informado == PagoInformado(str(pago["id"]), aprobado, 7, 15000)
+    assert informado == PagoInformado(
+        str(pago["id"]), aprobado, 7, 15000, rechazado=not aprobado
+    )
 
 
 def test_un_pago_desconocido_por_el_simulador_es_pago_no_disponible(

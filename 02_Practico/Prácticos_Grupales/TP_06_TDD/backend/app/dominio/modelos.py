@@ -27,6 +27,7 @@ class PagoInformado:
     aprobado: bool
     id_compra: int | None
     monto: int
+    rechazado: bool = False
 
 
 @dataclass(frozen=True)

@@ -102,6 +102,18 @@ class MercadoPagoSimulado:
     def obtener_pago(self, id_pago):
         return self._pagos.get(id_pago)
 
+    def buscar_pagos(self, external_reference):
+        # El más reciente primero, como sort=date_created y criteria=desc.
+        return sorted(
+            (
+                pago
+                for pago in self._pagos.values()
+                if pago["external_reference"] == external_reference
+            ),
+            key=lambda pago: pago["id"],
+            reverse=True,
+        )
+
     def pagos_de_preferencia(self, id_preferencia):
         return [
             pago

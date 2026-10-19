@@ -48,6 +48,7 @@ async def api_simulada(camino: str, request: Request, simulador: Simulador):
         f"/{camino}",
         request.headers.get("Authorization"),
         json.loads(contenido) if contenido else None,
+        dict(request.query_params),
     )
     return JSONResponse(respuesta, status_code=estado)
 

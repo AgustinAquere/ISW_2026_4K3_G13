@@ -31,9 +31,18 @@ RECURSO_NO_ENCONTRADO = {
 CAMINO_PAGO = re.compile(r"/v1/payments/([^/]+)")
 
 
-def responder_api(simulador, metodo, camino, autorizacion, cuerpo):
+def responder_api(
+    simulador, metodo, camino, autorizacion, cuerpo, parametros=None
+):
     if autorizacion != f"Bearer {TOKEN_SIMULADO}":
         return 401, NO_AUTORIZADO
+    if metodo == "GET" and camino == "/v1/payments/search":
+        referencia = (parametros or {}).get("external_reference")
+        pagos = simulador.buscar_pagos(referencia)
+        return 200, {
+            "paging": {"total": len(pagos), "limit": 30, "offset": 0},
+            "results": pagos,
+        }
     if metodo == "POST" and camino == "/checkout/preferences":
         return 201, simulador.crear_preferencia(cuerpo)
     pago = CAMINO_PAGO.fullmatch(camino)
@@ -58,6 +67,7 @@ def transporte_en_proceso(simulador):
             camino,
             solicitud.headers.get("Authorization"),
             cuerpo,
+            dict(solicitud.url.params),
         )
         return httpx.Response(estado, json=respuesta)
 
