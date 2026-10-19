@@ -35,10 +35,12 @@ body {
 
 .marca {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 10px;
   font-weight: 900;
   font-size: 1.15rem;
+  white-space: nowrap;
 }
 
 .logo { width: 40px; height: 40px; }
@@ -55,6 +57,20 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* En pantallas angostas la sesión baja a una segunda fila: el nombre del
+   parque no se parte y el email tiene todo el ancho. */
+@media (max-width: 480px) {
+  .barra { flex-wrap: wrap; row-gap: 10px; }
+
+  .sesion {
+    flex: 1 0 100%;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid rgb(242 232 207 / 20%);
+    font-size: 0.85rem;
+  }
 }
 
 .enlace {
