@@ -1,6 +1,5 @@
 import smtplib
 from email.message import EmailMessage
-from email.utils import make_msgid
 from html import escape
 from pathlib import Path
 from string import Template
@@ -9,8 +8,6 @@ from app.dominio.modelos import MedioPago
 
 RUTA_APP = Path(__file__).resolve().parent.parent
 PLANTILLA_HTML = RUTA_APP / "plantillas" / "mail_confirmacion.html"
-# Gmail no muestra SVG: el logo del parque va como PNG dentro del mail.
-LOGO_PNG = RUTA_APP / "static" / "logo-ecoharmony.png"
 
 
 class NotificadorEnMemoria:
@@ -64,18 +61,7 @@ class NotificadorSMTP:
         mensaje["To"] = compra.email_usuario
         mensaje["Subject"] = "EcoHarmony Park: Confirmación de compra"
         mensaje.set_content(_cuerpo_del_mail(compra))
-        cid_logo = make_msgid(domain="ecoharmony.park")
-        mensaje.add_alternative(
-            _cuerpo_html(compra, cid_logo.strip("<>")), subtype="html"
-        )
-        mensaje.get_payload()[1].add_related(
-            LOGO_PNG.read_bytes(),
-            maintype="image",
-            subtype="png",
-            cid=cid_logo,
-            # Inline: si fuera adjunto, Gmail lo muestra debajo del mail.
-            disposition="inline",
-        )
+        mensaje.add_alternative(_cuerpo_html(compra), subtype="html")
         try:
             with self._smtp(self._host, self._puerto, timeout=10) as servidor:
                 servidor.starttls()
@@ -122,7 +108,7 @@ def _datos_del_pago(compra):
     )
 
 
-def _cuerpo_html(compra, cid_logo):
+def _cuerpo_html(compra):
     titulo, etiqueta_total, pago = _datos_del_pago(compra)
     bloque_pago = (
         '<p style="margin:16px 0 0;padding:10px 12px;'
@@ -140,5 +126,4 @@ def _cuerpo_html(compra, cid_logo):
         etiqueta_total=escape(etiqueta_total),
         total=escape(f"${compra.total:,}".replace(",", ".")),
         bloque_pago=bloque_pago,
-        cid_logo=escape(cid_logo),
     )
