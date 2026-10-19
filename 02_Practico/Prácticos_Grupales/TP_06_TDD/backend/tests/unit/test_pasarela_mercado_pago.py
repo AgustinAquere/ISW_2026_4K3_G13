@@ -302,3 +302,37 @@ def test_un_pago_pendiente_no_esta_aprobado_ni_rechazado():
 def test_si_no_se_puede_buscar_el_pago_se_informa_el_error():
     with pytest.raises(PagoNoDisponibleError):
         pasarela(BusquedaDePagosFalsa(status_code=500)).buscar_pago(7)
+
+
+# Mercado Pago le quita las barras al título ("20/10/2026" se ve "20102026"):
+# la fecha va escrita con palabras.
+MESES = (
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+)
+
+
+def test_el_titulo_del_pago_escribe_la_fecha_con_palabras():
+    api = MercadoPagoFalso()
+
+    pasarela(api).crear_pago(compra_con_tarjeta())
+
+    (item,) = json.loads(api.solicitudes[0].content)["items"]
+    fecha = (
+        f"{FECHA_VISITA.day} de {MESES[FECHA_VISITA.month - 1]} "
+        f"de {FECHA_VISITA.year}"
+    )
+    assert item["title"] == (
+        f"EcoHarmony Park: 2 entradas REGULAR para el {fecha}"
+    )
+    assert "/" not in item["title"]
