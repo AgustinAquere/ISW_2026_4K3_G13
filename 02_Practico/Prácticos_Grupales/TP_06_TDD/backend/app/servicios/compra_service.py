@@ -1,3 +1,4 @@
+import threading
 import uuid
 
 from app.dominio.calendario import validar_fecha_visita
@@ -20,6 +21,9 @@ class ServicioCompra:
         self._compras = compras
         self._notificador = notificador
         self._pasarela_pago = pasarela_pago
+        # FastAPI atiende cada solicitud en un hilo: confirmar o verificar un
+        # pago se hace de a uno para que el mail salga una sola vez.
+        self._pagos_en_curso = threading.Lock()
 
     def comprar(self, solicitud):
         self._validar(solicitud)
@@ -49,21 +53,25 @@ class ServicioCompra:
         return compra
 
     def confirmar_pago(self, email_usuario, id_compra, id_pago):
-        compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
-        if compra.estado == EstadoCompra.CONFIRMADA:
+        with self._pagos_en_curso:
+            compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
+            if compra.estado == EstadoCompra.CONFIRMADA:
+                return compra
+            self._aplicar_pago(
+                compra, self._pasarela_pago.consultar_pago(id_pago)
+            )
             return compra
-        self._aplicar_pago(compra, self._pasarela_pago.consultar_pago(id_pago))
-        return compra
 
     def verificar_pago(self, email_usuario, id_compra):
         """Busca el pago por el número de compra (pago en otra pestaña)."""
-        compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
-        if compra.estado == EstadoCompra.CONFIRMADA:
-            return compra, None
-        pago = self._pasarela_pago.buscar_pago(compra.referencia_externa())
-        if pago is not None:
-            self._aplicar_pago(compra, pago)
-        return compra, pago
+        with self._pagos_en_curso:
+            compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
+            if compra.estado == EstadoCompra.CONFIRMADA:
+                return compra, None
+            pago = self._pasarela_pago.buscar_pago(compra.referencia_externa())
+            if pago is not None:
+                self._aplicar_pago(compra, pago)
+            return compra, pago
 
     def _compra_con_pago_pendiente(self, email_usuario, id_compra):
         compra = self._compras.obtener(id_compra)
