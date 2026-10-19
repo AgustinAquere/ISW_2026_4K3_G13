@@ -78,6 +78,29 @@ Copiar `backend/.env.example` como `backend/.env` y completarlo. El archivo `.en
 
 Si `MP_ACCESS_TOKEN` o `SMTP_HOST` quedan vacíos, la aplicación usa la versión simulada (lo indica en la consola al hacer la primera compra): el link de pago vuelve al sitio con el pago aprobado (FAQ 4) y el mail se escribe en el log.
 
+## Demo con un link público (un solo comando, Windows)
+
+Para que el grupo pruebe la app desde el navegador sin instalar nada, `backend/iniciar-demo.cmd` levanta la app en tu computadora y la publica en un link `https://….trycloudflare.com` con un túnel de Cloudflare.
+
+Requisitos (una sola vez):
+- Python 3.12 o 3.13.
+- `cloudflared`: `winget install --id Cloudflare.cloudflared`.
+- `backend/.env` completo, si se quiere usar Mercado Pago de prueba y mails reales ([CONFIGURACION_CREDENCIALES.md](CONFIGURACION_CREDENCIALES.md)). Si falta, el script lo copia de `.env.example` y la app usa el Mercado Pago simulado y escribe los mails en la consola.
+
+Uso: doble clic en `backend/iniciar-demo.cmd`, o desde PowerShell en `backend`:
+
+```powershell
+.\iniciar-demo.cmd          # app + link público
+.\iniciar-demo.cmd -Local   # solo http://127.0.0.1:8000/, sin túnel
+```
+
+Qué hace el script:
+1. La primera vez crea `.venv` e instala las dependencias.
+2. Abre el túnel y escribe el link en `URL_PUBLICA` del `.env` (con `https`, Mercado Pago vuelve solo al sitio después de pagar).
+3. Levanta la app, muestra el link y lo copia al portapapeles.
+
+`Ctrl+C` apaga la app y el túnel. El link cambia cada vez y funciona mientras la ventana esté abierta. Cualquiera que tenga el link puede usar la app (y hacer que envíe mails): compartilo solo con el grupo y apagalo al terminar.
+
 ## Ejecutar la aplicación
 
 Con el entorno virtual activado (en Windows y en Linux):
