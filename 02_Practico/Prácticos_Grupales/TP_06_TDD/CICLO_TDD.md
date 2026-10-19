@@ -696,7 +696,7 @@ Estos ciclos se hicieron en las ramas `feat/pulido-ux-ui` y `feat/registro-simul
 | 32 | El logo va dentro del mensaje y no como adjunto | `c3cc6e6` | `268d5f8` | 219 |
 | 33 | El mail no lleva imágenes: Gmail mostraba el logo como adjunto aun marcado `inline` | `46c8da4` | `b432673` | 218 |
 | 34 | Medio de pago y detalle de cada entrada (edad y precio) con el total al final | `cf30145` | `c95daf1` | 224 |
-| 35 | Registro simulado sin contraseña (`POST /usuarios`, CP-38) | `ce83604` | `f89069a` | 236 |
+| 35 | Registro simulado sin contraseña (`POST /usuarios`, CP-38) | `6b86b4b` | `cc0f316` | 236 |
 
 **Ciclo 33:** reemplaza las dos pruebas del logo de los ciclos 31 y 32 por una que exige que el mail no tenga imágenes. El cambio de pantallas y el botón "Registrarme" son front y no tienen pruebas automatizadas.
 
