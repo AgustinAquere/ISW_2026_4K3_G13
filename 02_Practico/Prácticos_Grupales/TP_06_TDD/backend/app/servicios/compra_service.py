@@ -1,3 +1,5 @@
+import uuid
+
 from app.dominio.calendario import validar_fecha_visita
 from app.dominio.errores import (
     CompraInvalidaError,
@@ -22,6 +24,7 @@ class ServicioCompra:
     def comprar(self, solicitud):
         self._validar(solicitud)
         total = self._calcular_total(solicitud)
+        estado = self._estado_inicial(solicitud.medio_pago, total)
         compra = Compra(
             email_usuario=solicitud.email_usuario,
             fecha_visita=solicitud.fecha_visita,
@@ -30,7 +33,13 @@ class ServicioCompra:
             tipo_pase=solicitud.tipo_pase,
             medio_pago=solicitud.medio_pago,
             total=total,
-            estado=self._estado_inicial(solicitud.medio_pago, total),
+            estado=estado,
+            # El número de compra se repite si se borra la base o si otro
+            # integrante usa las mismas credenciales: el pago se busca por
+            # una referencia única.
+            referencia_pago=uuid.uuid4().hex
+            if estado == EstadoCompra.PENDIENTE_DE_PAGO
+            else None,
         )
         self._compras.guardar(compra)
         if compra.estado == EstadoCompra.PENDIENTE_DE_PAGO:
@@ -51,7 +60,7 @@ class ServicioCompra:
         compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
         if compra.estado == EstadoCompra.CONFIRMADA:
             return compra, None
-        pago = self._pasarela_pago.buscar_pago(compra.id)
+        pago = self._pasarela_pago.buscar_pago(compra.referencia_externa())
         if pago is not None:
             self._aplicar_pago(compra, pago)
         return compra, pago
@@ -65,7 +74,10 @@ class ServicioCompra:
         return compra
 
     def _aplicar_pago(self, compra, pago):
-        if pago.id_compra != compra.id or pago.monto != compra.total:
+        if (
+            pago.referencia != compra.referencia_externa()
+            or pago.monto != compra.total
+        ):
             raise CompraInvalidaError("El pago no corresponde a la compra")
         if pago.aprobado:
             self._cambiar_estado(compra, EstadoCompra.CONFIRMADA)
