@@ -73,7 +73,8 @@ class NotificadorSMTP:
             maintype="image",
             subtype="png",
             cid=cid_logo,
-            filename="logo-ecoharmony.png",
+            # Inline: si fuera adjunto, Gmail lo muestra debajo del mail.
+            disposition="inline",
         )
         try:
             with self._smtp(self._host, self._puerto, timeout=10) as servidor:
