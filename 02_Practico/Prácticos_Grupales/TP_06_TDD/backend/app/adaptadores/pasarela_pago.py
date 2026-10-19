@@ -8,6 +8,7 @@ from app.dominio.modelos import PagoInformado
 URL_PREFERENCIAS_MERCADO_PAGO = (
     "https://api.mercadopago.com/checkout/preferences"
 )
+URL_PAGOS_MERCADO_PAGO = "https://api.mercadopago.com/v1/payments"
 
 
 class PasarelaMercadoPago:
@@ -36,6 +37,8 @@ class PasarelaMercadoPago:
                 ("success", "failure", "pending"), self._url_retorno
             ),
         }
+        if self._url_retorno.startswith("https://"):
+            preferencia["auto_return"] = "approved"
         try:
             respuesta = self._cliente.post(
                 URL_PREFERENCIAS_MERCADO_PAGO,
@@ -50,6 +53,26 @@ class PasarelaMercadoPago:
         if self._access_token.startswith("TEST-"):
             return datos["sandbox_init_point"]
         return datos["init_point"]
+
+    def consultar_pago(self, id_pago):
+        if not id_pago.isdigit():
+            return PagoInformado(id_pago, False, None, 0)
+        try:
+            respuesta = self._cliente.get(
+                f"{URL_PAGOS_MERCADO_PAGO}/{id_pago}",
+                headers={"Authorization": f"Bearer {self._access_token}"},
+            )
+            respuesta.raise_for_status()
+        except httpx.HTTPError as error:
+            raise PagoNoDisponibleError() from error
+        datos = respuesta.json()
+        referencia = datos.get("external_reference")
+        return PagoInformado(
+            id_pago=id_pago,
+            aprobado=datos["status"] == "approved",
+            id_compra=int(referencia) if referencia else None,
+            monto=round(datos["transaction_amount"]),
+        )
 
 
 class PasarelaMercadoPagoSimulada:
