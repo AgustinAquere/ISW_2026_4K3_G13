@@ -206,31 +206,19 @@ def test_el_mail_html_usa_la_paleta_del_sitio(servidor):
     assert "#f2e8cf" in html  # crema
 
 
-def test_el_mail_html_muestra_el_logo_del_parque_como_imagen_adjunta(
+def test_el_mail_html_no_lleva_imagenes_y_muestra_el_nombre_del_parque(
     servidor,
 ):
-    # Gmail no muestra SVG: el logo va como PNG dentro del mail (cid).
+    # El logo como imagen dentro del mail aparecía en Gmail como adjunto:
+    # el encabezado lleva solo el nombre del parque.
     notificador(servidor).enviar_confirmacion(compra_nueva())
 
     mensaje = mail_enviado(servidor)
-    (logo,) = [
+    html = html_del_mail(servidor)
+    assert "EcoHarmony Park" in html
+    assert "<img" not in html
+    assert not [
         parte
         for parte in mensaje.walk()
-        if parte.get_content_type() == "image/png"
+        if parte.get_content_maintype() == "image"
     ]
-    content_id = logo["Content-ID"].strip("<>")
-    assert f'src="cid:{content_id}"' in html_del_mail(servidor)
-    assert logo.get_content().startswith(b"\x89PNG")
-
-
-def test_el_logo_va_dentro_del_mensaje_y_no_como_adjunto(servidor):
-    # Con Content-Disposition: attachment, Gmail lo muestra como archivo
-    # adjunto debajo del mail y no dentro del HTML.
-    notificador(servidor).enviar_confirmacion(compra_nueva())
-
-    (logo,) = [
-        parte
-        for parte in mail_enviado(servidor).walk()
-        if parte.get_content_type() == "image/png"
-    ]
-    assert logo.get_content_disposition() == "inline"
