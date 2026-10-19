@@ -22,6 +22,14 @@ class RepositorioUsuariosSQLite:
         ).fetchone()
         return fila is not None
 
+    def registrar(self, email):
+        """Registra el email; devuelve False si ya estaba registrado."""
+        with self._conexion:
+            cursor = self._conexion.execute(
+                "INSERT OR IGNORE INTO usuarios (email) VALUES (?)", (email,)
+            )
+        return cursor.rowcount == 1
+
 
 class RepositorioComprasSQLite:
     # url_pago no se guarda: se genera después de registrar la compra.
