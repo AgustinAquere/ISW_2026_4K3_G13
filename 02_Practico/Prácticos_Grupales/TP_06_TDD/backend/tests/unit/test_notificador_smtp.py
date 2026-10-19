@@ -222,3 +222,59 @@ def test_el_mail_html_no_lleva_imagenes_y_muestra_el_nombre_del_parque(
         for parte in mensaje.walk()
         if parte.get_content_maintype() == "image"
     ]
+
+
+# Medio de pago y detalle de la compra: una fila por entrada, con la edad y
+# el precio de cada una, y el total al final. compra_nueva(): pase regular,
+# edades 40 (precio completo) y 8 (50 %), total $15.000.
+
+
+@pytest.mark.parametrize(
+    "cambios, medio",
+    [
+        ({}, "Tarjeta (Mercado Pago)"),
+        ({"medio_pago": MedioPago.EFECTIVO}, "Efectivo (en boletería)"),
+        ({"edades": [1, 3], "total": 0}, "Sin pago (compra sin costo)"),
+    ],
+    ids=["tarjeta", "efectivo", "sin-costo"],
+)
+def test_el_mail_informa_el_medio_de_pago(servidor, cambios, medio):
+    notificador(servidor).enviar_confirmacion(compra_nueva(**cambios))
+
+    assert ">Medio de pago<" in html_del_mail(servidor)
+    assert f">{medio}<" in html_del_mail(servidor)
+    assert f"Medio de pago: {medio}" in texto_del_mail(servidor)
+
+
+def test_el_mail_detalla_cada_entrada_con_su_edad_y_precio(servidor):
+    notificador(servidor).enviar_confirmacion(compra_nueva())
+
+    html = html_del_mail(servidor)
+    assert ">Detalle de la compra<" in html
+    primera = html.index(">Entrada 1<")
+    segunda = html.index(">Entrada 2<")
+    total = html.index(">Total pagado<")
+    assert primera < segunda < total
+    assert ">40 años<" in html[primera:segunda]
+    assert ">$10.000<" in html[primera:segunda]
+    assert ">8 años<" in html[segunda:total]
+    assert ">$5.000<" in html[segunda:total]
+    assert ">$15.000<" in html[total:]
+
+
+def test_una_entrada_sin_costo_figura_como_gratis(servidor):
+    notificador(servidor).enviar_confirmacion(
+        compra_nueva(edades=[1, 3], total=0)
+    )
+
+    html = html_del_mail(servidor)
+    assert html.count(">Gratis<") == 2
+    assert ">1 año<" in html
+
+
+def test_el_texto_del_mail_detalla_cada_entrada(servidor):
+    notificador(servidor).enviar_confirmacion(compra_nueva())
+
+    texto = texto_del_mail(servidor)
+    assert "Entrada 1: 40 años, $10.000" in texto
+    assert "Entrada 2: 8 años, $5.000" in texto
