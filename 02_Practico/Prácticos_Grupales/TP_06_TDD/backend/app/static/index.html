@@ -58,7 +58,11 @@
             <button type="button" class="boton-redondo" id="mas" aria-label="Agregar una entrada">+</button>
           </div>
           <div id="edades" class="edades"></div>
-          <p class="ayuda">Hasta 3 años no pagan. De 4 a 15 años y desde los 60, 50 % de descuento.</p>
+          <ul class="descuentos" aria-label="Descuentos por edad">
+            <li><span>Hasta 3 años</span><strong>Gratis</strong></li>
+            <li><span>De 4 a 15 años</span><strong>50 % de descuento</strong></li>
+            <li><span>60 años o más</span><strong>50 % de descuento</strong></li>
+          </ul>
         </fieldset>
 
         <fieldset>
@@ -97,6 +101,25 @@
         <p class="error" id="error-compra" role="alert"></p>
         <button type="submit" class="boton" id="confirmar">Confirmar compra</button>
       </form>
+    </section>
+
+    <!-- Confirmación de la compra: pago aprobado con tarjeta, compra en
+         efectivo o compra sin costo. -->
+    <section id="pantalla-confirmacion" class="tarjeta confirmacion" hidden>
+      <div class="icono-aprobado" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h1 id="confirmacion-titulo"></h1>
+      <p class="resumen" id="confirmacion-resumen"></p>
+      <dl class="detalle-compra">
+        <div><dt>Compra n.º</dt><dd id="confirmacion-numero"></dd></div>
+        <div><dt>Pase</dt><dd id="confirmacion-pase"></dd></div>
+        <div><dt id="confirmacion-total-etiqueta"></dt><dd id="confirmacion-total"></dd></div>
+      </dl>
+      <p class="info-pago" id="confirmacion-pago" hidden></p>
+      <p class="aviso-mail" id="confirmacion-mail"></p>
+      <p class="ayuda">Tus entradas se verifican al ingresar al parque.</p>
+      <a href="/" class="boton" id="volver-al-inicio">Volver al inicio</a>
     </section>
   </main>
 
