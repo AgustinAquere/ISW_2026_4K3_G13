@@ -36,12 +36,17 @@ class MercadoPagoQueInforma:
     def __init__(self):
         self.pago = None
         self.consultados = []
+        self.buscados = []
 
     def crear_pago(self, compra):
         return f"https://www.mercadopago.com.ar/checkout?ref={compra.id}"
 
     def consultar_pago(self, id_pago):
         self.consultados.append(id_pago)
+        return self.pago
+
+    def buscar_pago(self, id_compra):
+        self.buscados.append(id_compra)
         return self.pago
 
 

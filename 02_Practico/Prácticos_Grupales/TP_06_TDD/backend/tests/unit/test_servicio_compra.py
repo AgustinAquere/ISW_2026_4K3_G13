@@ -406,3 +406,109 @@ def test_confirmar_el_pago_de_una_compra_anulada_es_rechazado(
         servicio_mp.confirmar_pago(EMAIL_REGISTRADO, compra.id, "pago-1")
 
     assert mercado_pago.consultados == []
+
+
+# 9. Verificación del pago sin el id del pago: Mercado Pago se abre en otra
+# pestaña y el sitio busca el pago por el número de compra.
+
+
+def test_cp36_verificar_un_pago_aprobado_confirma_la_compra_y_envia_el_mail(
+    servicio_mp, mercado_pago, compras, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+
+    verificada, pago = servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
+
+    assert verificada.estado == EstadoCompra.CONFIRMADA
+    assert compras.obtener(compra.id).estado == EstadoCompra.CONFIRMADA
+    assert pago == mercado_pago.pago
+    assert notificador.enviados == [verificada]
+    assert mercado_pago.buscados == [compra.id]
+
+
+def test_verificar_sin_pagos_deja_la_compra_pendiente(
+    servicio_mp, mercado_pago, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+
+    verificada, pago = servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
+
+    assert verificada.estado == EstadoCompra.PENDIENTE_DE_PAGO
+    assert pago is None
+    assert notificador.enviados == []
+
+
+def test_verificar_un_pago_rechazado_lo_informa_y_la_compra_sigue_pendiente(
+    servicio_mp, mercado_pago, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", False, compra.id, compra.total, rechazado=True
+    )
+
+    verificada, pago = servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
+
+    assert verificada.estado == EstadoCompra.PENDIENTE_DE_PAGO
+    assert pago.rechazado
+    assert notificador.enviados == []
+
+
+def test_verificar_un_pago_por_otro_monto_es_rechazado(
+    servicio_mp, mercado_pago, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.id, compra.total - 1
+    )
+
+    with pytest.raises(CompraInvalidaError, match="no corresponde"):
+        servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
+
+    assert notificador.enviados == []
+
+
+def test_verificar_una_compra_ya_confirmada_no_busca_ni_reenvia_el_mail(
+    servicio_mp, mercado_pago, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado("pago-1", True, compra.id, compra.total)
+    servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
+
+    verificada, _ = servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
+
+    assert verificada.estado == EstadoCompra.CONFIRMADA
+    assert mercado_pago.buscados == [compra.id]
+    assert len(notificador.enviados) == 1
+
+
+def test_verificar_el_pago_de_una_compra_de_otro_usuario_es_rechazado(
+    reloj, compras, notificador, mercado_pago
+):
+    otro_usuario = "otro@ecoharmony.com"
+    servicio = ServicioCompra(
+        reloj,
+        RepositorioUsuariosEnMemoria([EMAIL_REGISTRADO, otro_usuario]),
+        compras,
+        notificador,
+        mercado_pago,
+    )
+    compra = compra_con_tarjeta(servicio)
+
+    with pytest.raises(CompraNoEncontradaError):
+        servicio.verificar_pago(otro_usuario, compra.id)
+
+    assert mercado_pago.buscados == []
+
+
+def test_verificar_el_pago_de_una_compra_anulada_es_rechazado(
+    servicio_mp, mercado_pago, compras
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    compra.estado = EstadoCompra.ANULADA
+    compras.actualizar_estado(compra)
+
+    with pytest.raises(CompraInvalidaError, match="anulada"):
+        servicio_mp.verificar_pago(EMAIL_REGISTRADO, compra.id)
+
+    assert mercado_pago.buscados == []
