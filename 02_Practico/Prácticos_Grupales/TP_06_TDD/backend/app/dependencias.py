@@ -4,19 +4,24 @@ import sqlite3
 from functools import lru_cache
 from pathlib import Path
 
+import httpx
 from dotenv import load_dotenv
 
 from app.adaptadores.notificador import NotificadorEmailLog, NotificadorSMTP
-from app.adaptadores.pasarela_pago import (
-    PasarelaMercadoPago,
-    PasarelaMercadoPagoSimulada,
-)
+from app.adaptadores.pasarela_pago import PasarelaMercadoPago
 from app.adaptadores.reloj import RelojSistema
 from app.adaptadores.repositorios_sqlite import (
     RepositorioComprasSQLite,
     RepositorioUsuariosSQLite,
 )
-from app.mercado_pago_simulado.nucleo import MercadoPagoSimulado
+from app.mercado_pago_simulado.api import (
+    PREFIJO_API_SIMULADA,
+    transporte_en_proceso,
+)
+from app.mercado_pago_simulado.nucleo import (
+    TOKEN_SIMULADO,
+    MercadoPagoSimulado,
+)
 from app.servicios.compra_service import ServicioCompra
 
 RUTA_BACKEND = Path(__file__).resolve().parent.parent
@@ -37,13 +42,21 @@ def usuarios_registrados(configuracion):
     return [email.strip() for email in emails.split(",") if email.strip()]
 
 
-def crear_pasarela_pago(configuracion):
+def crear_pasarela_pago(configuracion, simulador=None):
     access_token = configuracion.get("MP_ACCESS_TOKEN")
-    if not access_token:
-        logger.warning("Sin MP_ACCESS_TOKEN: se simula Mercado Pago")
-        return PasarelaMercadoPagoSimulada()
     url_retorno = configuracion.get("URL_PUBLICA", URL_PUBLICA_POR_DEFECTO)
-    return PasarelaMercadoPago(access_token, url_retorno)
+    if access_token:
+        return PasarelaMercadoPago(access_token, url_retorno)
+    logger.warning("Sin MP_ACCESS_TOKEN: se usa el Mercado Pago simulado")
+    simulador = simulador or obtener_mercado_pago_simulado()
+    # La misma pasarela que en el modo real, hablándole al simulador
+    # dentro del mismo proceso.
+    return PasarelaMercadoPago(
+        TOKEN_SIMULADO,
+        url_retorno,
+        httpx.Client(transport=transporte_en_proceso(simulador)),
+        url_api=url_retorno.rstrip("/") + PREFIJO_API_SIMULADA,
+    )
 
 
 def crear_notificador(configuracion):
