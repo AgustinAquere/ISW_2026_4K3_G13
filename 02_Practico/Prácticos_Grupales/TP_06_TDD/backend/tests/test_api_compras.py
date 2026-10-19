@@ -1,6 +1,7 @@
 import pytest
 
 from app.dominio.errores import PagoNoDisponibleError
+from tests.fechas import FECHA_VISITA, LUNES_PROXIMO, dd_mm_aaaa
 
 
 def solicitud_valida(**cambios):
@@ -9,7 +10,7 @@ def solicitud_valida(**cambios):
     Cada prueba cambia solo el dato que evalúa.
     """
     solicitud = {
-        "fecha_visita": "2026-11-15",
+        "fecha_visita": FECHA_VISITA.isoformat(),
         "cantidad": 2,
         "edades": [25, 30],
         "tipo_pase": "REGULAR",
@@ -81,7 +82,7 @@ def test_cp01_compra_con_tarjeta_mediante_mercado_pago_y_mail(
     cuerpo = respuesta.json()
     assert cuerpo["url_pago"]
     assert cuerpo["cantidad"] == 3
-    assert cuerpo["fecha_visita"] == "2026-11-15"
+    assert cuerpo["fecha_visita"] == FECHA_VISITA.isoformat()
     assert cuerpo["total"] == 50000  # 2 VIP completos + 1 VIP al 50 %
     assert cuerpo["estado"] == "PENDIENTE_DE_PAGO"
     # El mail de confirmación se envía cuando Mercado Pago aprueba el pago.
@@ -124,7 +125,7 @@ def test_cp10_api_rechaza_mas_de_10_entradas_con_mensaje(
 def test_api_rechaza_fecha_con_parque_cerrado(client, cabecera_usuario):
     respuesta = client.post(
         "/compras",
-        json=solicitud_valida(fecha_visita="2026-11-16"),  # lunes
+        json=solicitud_valida(fecha_visita=LUNES_PROXIMO.isoformat()),
         headers=cabecera_usuario,
     )
 
@@ -158,7 +159,7 @@ def test_cp26_api_informa_cantidad_y_fecha_al_finalizar(
 
     assert (
         respuesta.json()["mensaje"]
-        == "Compraste 2 entradas para el 15/11/2026"
+        == f"Compraste 2 entradas para el {dd_mm_aaaa(FECHA_VISITA)}"
     )
 
 

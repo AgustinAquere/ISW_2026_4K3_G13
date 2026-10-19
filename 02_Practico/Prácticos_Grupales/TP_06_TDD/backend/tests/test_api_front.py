@@ -1,3 +1,6 @@
+from tests.fechas import HOY, LUNES_PROXIMO
+
+
 def test_la_pagina_de_compra_se_sirve_en_la_raiz(client):
     respuesta = client.get("/")
 
@@ -11,8 +14,8 @@ def test_api_informa_las_fechas_disponibles(client):
 
     assert respuesta.status_code == 200
     fechas = respuesta.json()["fechas"]
-    assert fechas[0] == "2026-11-10"
-    assert "2026-11-16" not in fechas  # lunes
+    assert fechas[0] == HOY.isoformat()
+    assert LUNES_PROXIMO.isoformat() not in fechas
 
 
 def test_api_cotiza_el_total_antes_de_elegir_la_forma_de_pago(client):

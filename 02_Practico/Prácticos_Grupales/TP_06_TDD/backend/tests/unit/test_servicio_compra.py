@@ -1,5 +1,3 @@
-from datetime import date
-
 import pytest
 
 from app.adaptadores.repositorios import RepositorioUsuariosEnMemoria
@@ -18,13 +16,19 @@ from app.dominio.modelos import (
 from app.dominio.precios import PRECIO_BASE
 from app.servicios.compra_service import ServicioCompra
 from tests.conftest import EMAIL_REGISTRADO
+from tests.fechas import (
+    FECHA_VISITA,
+    LUNES_PROXIMO,
+    OTRA_FECHA_VISITA,
+    dd_mm_aaaa,
+)
 
 
 def solicitud(**cambios):
     """Arma una solicitud válida; cada prueba cambia solo lo que evalúa."""
     datos = {
         "email_usuario": EMAIL_REGISTRADO,
-        "fecha_visita": date(2026, 11, 15),
+        "fecha_visita": FECHA_VISITA,
         "cantidad": 2,
         "edades": [25, 30],
         "tipo_pase": TipoPase.REGULAR,
@@ -91,13 +95,12 @@ def test_cp28_completar_10_entradas_para_una_fecha_es_aceptado(servicio):
 
 def test_cp28_el_limite_se_cuenta_por_fecha(servicio):
     servicio.comprar(solicitud(cantidad=6, edades=[30] * 6))
-    martes = date(2026, 11, 17)
 
     compra = servicio.comprar(
-        solicitud(cantidad=6, edades=[30] * 6, fecha_visita=martes)
+        solicitud(cantidad=6, edades=[30] * 6, fecha_visita=OTRA_FECHA_VISITA)
     )
 
-    assert compra.fecha_visita == martes
+    assert compra.fecha_visita == OTRA_FECHA_VISITA
 
 
 def test_cp28_el_limite_se_cuenta_por_usuario(
@@ -121,10 +124,8 @@ def test_cp28_el_limite_se_cuenta_por_usuario(
 
 
 def test_compra_para_un_dia_cerrado_es_rechazada(servicio):
-    lunes = date(2026, 11, 16)
-
     with pytest.raises(CompraInvalidaError, match="cerrado"):
-        servicio.comprar(solicitud(fecha_visita=lunes))
+        servicio.comprar(solicitud(fecha_visita=LUNES_PROXIMO))
 
 
 # 4. Validación de la edad y descuentos
@@ -231,17 +232,19 @@ def test_compra_rechazada_no_envia_mail_ni_se_registra(
 
 
 def test_cp26_resumen_informa_cantidad_de_entradas_y_fecha(servicio):
-    compra = servicio.comprar(
-        solicitud(cantidad=2, fecha_visita=date(2026, 11, 15))
-    )
+    compra = servicio.comprar(solicitud(cantidad=2, fecha_visita=FECHA_VISITA))
 
-    assert compra.resumen() == "Compraste 2 entradas para el 15/11/2026"
+    assert compra.resumen() == (
+        f"Compraste 2 entradas para el {dd_mm_aaaa(FECHA_VISITA)}"
+    )
 
 
 def test_cp26_resumen_en_singular_para_una_entrada(servicio):
     compra = servicio.comprar(solicitud(cantidad=1, edades=[30]))
 
-    assert compra.resumen() == "Compraste 1 entrada para el 15/11/2026"
+    assert compra.resumen() == (
+        f"Compraste 1 entrada para el {dd_mm_aaaa(FECHA_VISITA)}"
+    )
 
 
 # 7. Confirmación del pago con Mercado Pago: al volver del checkout se

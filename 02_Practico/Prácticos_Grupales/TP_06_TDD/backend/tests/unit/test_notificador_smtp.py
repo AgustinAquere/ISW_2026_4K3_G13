@@ -1,11 +1,11 @@
 import logging
 import smtplib
-from datetime import date
 
 import pytest
 
 from app.adaptadores.notificador import NotificadorSMTP
 from app.dominio.modelos import Compra, MedioPago, TipoPase
+from tests.fechas import FECHA_VISITA, dd_mm_aaaa
 
 URL_PAGO = "https://sandbox.mercadopago.com.ar/checkout?pref_id=1"
 
@@ -13,7 +13,7 @@ URL_PAGO = "https://sandbox.mercadopago.com.ar/checkout?pref_id=1"
 def compra_nueva(**cambios):
     datos = {
         "email_usuario": "visitante@ecoharmony.com",
-        "fecha_visita": date(2026, 11, 15),
+        "fecha_visita": FECHA_VISITA,
         "cantidad": 2,
         "edades": [40, 8],
         "tipo_pase": TipoPase.REGULAR,
@@ -101,7 +101,8 @@ def test_el_mail_informa_cantidad_fecha_total_y_link_de_pago(servidor):
     notificador(servidor).enviar_confirmacion(compra_nueva())
 
     cuerpo = mail_enviado(servidor).get_content()
-    assert "Compraste 2 entradas para el 15/11/2026" in cuerpo
+    resumen = f"Compraste 2 entradas para el {dd_mm_aaaa(FECHA_VISITA)}"
+    assert resumen in cuerpo
     assert "$15.000" in cuerpo
     assert URL_PAGO in cuerpo
 
