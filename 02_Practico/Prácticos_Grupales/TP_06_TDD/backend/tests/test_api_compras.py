@@ -338,3 +338,99 @@ def test_cp35_pago_rechazado_deja_la_compra_pendiente_y_se_puede_reintentar(
 
     assert respuesta.json()["estado"] == "CONFIRMADA"
     assert len(notificador.enviados) == 1
+
+
+# 8. Verificación del pago hecho en otra pestaña: el sitio no recibe el id
+# del pago y le pregunta al backend si la compra ya se pagó.
+
+
+def verificar(client, compra, cabeceras):
+    return client.post(
+        f"/compras/{compra['id']}/verificacion-de-pago", headers=cabeceras
+    )
+
+
+def test_cp36_api_verifica_el_pago_hecho_en_otra_pestana(
+    client, cabecera_usuario, notificador
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+    pagar_en_checkout(client, compra["url_pago"], "APRO")
+
+    respuesta = verificar(client, compra, cabecera_usuario)
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["estado"] == "CONFIRMADA"
+    assert cuerpo["pago"] == "aprobado"
+    assert cuerpo["mensaje"] == compra["mensaje"]
+    assert len(notificador.enviados) == 1
+
+
+@pytest.mark.parametrize(
+    "titular, pago", [("OTHE", "rechazado"), ("CONT", "pendiente")]
+)
+def test_api_verificacion_informa_el_pago_no_aprobado(
+    client, cabecera_usuario, notificador, titular, pago
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+    pagar_en_checkout(client, compra["url_pago"], titular)
+
+    cuerpo = verificar(client, compra, cabecera_usuario).json()
+
+    assert cuerpo["estado"] == "PENDIENTE_DE_PAGO"
+    assert cuerpo["pago"] == pago
+    assert notificador.enviados == []
+
+
+def test_api_verificacion_sin_pago_todavia(client, cabecera_usuario):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    cuerpo = verificar(client, compra, cabecera_usuario).json()
+
+    assert cuerpo["estado"] == "PENDIENTE_DE_PAGO"
+    assert cuerpo["pago"] == "sin_pago"
+
+
+def test_api_verificacion_de_una_compra_confirmada_informa_aprobado(
+    client, cabecera_usuario, notificador
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+    pagar_en_checkout(client, compra["url_pago"], "APRO")
+    verificar(client, compra, cabecera_usuario)
+
+    cuerpo = verificar(client, compra, cabecera_usuario).json()
+
+    assert cuerpo["pago"] == "aprobado"
+    assert len(notificador.enviados) == 1
+
+
+def test_api_verificacion_sin_sesion_responde_401(client, cabecera_usuario):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    respuesta = verificar(client, compra, {})
+
+    assert respuesta.status_code == 401
+
+
+def test_api_verificacion_de_una_compra_inexistente_responde_404(
+    client, cabecera_usuario
+):
+    respuesta = verificar(client, {"id": 99}, cabecera_usuario)
+
+    assert respuesta.status_code == 404
+
+
+def test_api_verificacion_con_mercado_pago_caido_responde_502(
+    client, cabecera_usuario, pasarela_pago, monkeypatch
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    def mercado_pago_caido(id_compra):
+        raise PagoNoDisponibleError()
+
+    monkeypatch.setattr(pasarela_pago, "buscar_pago", mercado_pago_caido)
+
+    respuesta = verificar(client, compra, cabecera_usuario)
+
+    assert respuesta.status_code == 502
+    assert "Mercado Pago" in respuesta.json()["detail"]
