@@ -213,3 +213,28 @@ def test_la_pasarela_busca_el_pago_en_el_simulador(simulador):
     informado = pasarela.buscar_pago(7)
 
     assert informado == PagoInformado(str(pago["id"]), True, 7, 15000)
+
+
+# El transporte en proceso atiende solo la ruta de la API simulada, como un
+# servidor real: si la pasarela le hablara a otra dirección, no respondería.
+
+
+def test_el_transporte_solo_atiende_la_api_simulada(simulador):
+    cliente = httpx.Client(transport=transporte_en_proceso(simulador))
+
+    respuesta = cliente.get(
+        "https://api.mercadopago.com/v1/payments/search",
+        headers={"Authorization": AUTORIZACION},
+    )
+
+    assert respuesta.status_code == 404
+
+
+def test_la_pasarela_usa_la_url_de_la_api_que_recibe(simulador):
+    cliente = httpx.Client(transport=transporte_en_proceso(simulador))
+    sin_url_simulada = PasarelaMercadoPago(
+        TOKEN_SIMULADO, URL_PUBLICA, cliente
+    )
+
+    with pytest.raises(PagoNoDisponibleError):
+        sin_url_simulada.crear_pago(compra_con_tarjeta())
