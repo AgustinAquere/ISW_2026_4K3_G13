@@ -248,7 +248,9 @@ function abrirDialogo({ titulo, mensaje, detalle = "", mail = null, urlPago = nu
   $("dialogo-pagar").hidden = !urlPago;
   if (urlPago) $("dialogo-pagar").href = urlPago;
   $("dialogo-cerrar").textContent = urlPago ? "Pagar más tarde" : "Listo";
-  $("dialogo").showModal();
+  $("dialogo-espera").hidden = true;
+  $("dialogo-verificar").hidden = true;
+  if (!$("dialogo").open) $("dialogo").showModal();
 }
 
 function mostrarCompra(compra) {
@@ -321,10 +323,38 @@ function esperarPago(compra) {
   if (compra.url_pago) $("dialogo-pagar").href = compra.url_pago;
   $("dialogo-pagar").textContent = "Abrir Mercado Pago de nuevo";
   $("dialogo-cerrar").textContent = "Pagar más tarde";
+  mostrarEspera(ESPERANDO_CONFIRMACION);
+  $("dialogo-verificar").hidden = false;
   if (!$("dialogo").open) $("dialogo").showModal();
   clearInterval(temporizadorDePago);
   temporizadorDePago = setInterval(verificarPago, 5000);
 }
+
+const ESPERANDO_CONFIRMACION =
+  "Estamos esperando la confirmación del pago. Esto puede demorar unos segundos…";
+
+function mostrarEspera(texto) {
+  $("dialogo-espera").textContent = texto;
+  $("dialogo-espera").hidden = false;
+}
+
+// Mercado Pago tarda unos segundos en informar el pago: además de consultar
+// solo, el usuario puede pedir la consulta en el momento.
+$("dialogo-verificar").addEventListener("click", async () => {
+  const boton = $("dialogo-verificar");
+  boton.disabled = true;
+  boton.textContent = "Consultando…";
+  const resultado = await verificarPago();
+  boton.disabled = false;
+  boton.textContent = "Ya pagué: verificar ahora";
+  if (resultado === "sin_pago" || resultado === "pendiente") {
+    mostrarEspera(
+      "Todavía no vemos el pago aprobado. Mercado Pago puede demorar unos segundos: volvé a probar en un momento.",
+    );
+  } else if (resultado === "error") {
+    mostrarEspera("No pudimos consultar el pago. Probá de nuevo en un momento.");
+  }
+});
 
 $("dialogo-pagar").addEventListener("click", () => {
   if (compraEnEspera) esperarPago(compraEnEspera);
@@ -342,16 +372,19 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && compraEnEspera) verificarPago();
 });
 
+// Devuelve el estado del pago ("aprobado", "rechazado", "pendiente",
+// "sin_pago") o "error" si no se pudo consultar.
 async function verificarPago() {
   const compra = compraEnEspera;
-  if (!compra) return;
+  if (!compra) return null;
   try {
     const respuesta = await fetch(`/compras/${compra.id}/verificacion-de-pago`, {
       method: "POST",
       headers: { "X-Usuario-Email": sesionEnMemoria },
     });
     const datos = await respuesta.json();
-    if (!respuesta.ok || compraEnEspera !== compra) return;
+    if (!respuesta.ok) return "error";
+    if (compraEnEspera !== compra) return datos.pago;
     if (datos.pago === "aprobado") {
       compraEnEspera = null;
       guardarCompraPendiente(null);
@@ -366,9 +399,14 @@ async function verificarPago() {
       $("dialogo-titulo").textContent = "Pago rechazado";
       $("dialogo-mensaje").textContent =
         "Mercado Pago rechazó el pago. Podés intentar con otra tarjeta.";
+      mostrarEspera("Si volvés a pagar, la confirmación se detecta sola.");
+    } else {
+      $("dialogo-titulo").textContent = "Esperando tu pago en Mercado Pago…";
     }
+    return datos.pago;
   } catch {
     // Sin conexión: se vuelve a intentar en la próxima consulta.
+    return "error";
   }
 }
 
