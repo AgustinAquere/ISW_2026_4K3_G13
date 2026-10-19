@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlsplit
+
 import pytest
 
 from app.dominio.errores import PagoNoDisponibleError
@@ -18,6 +20,11 @@ def solicitud_valida(**cambios):
     }
     solicitud.update(cambios)
     return solicitud
+
+
+def id_de_pago(url_de_vuelta):
+    """Lee el pago de la URL con la que Mercado Pago vuelve al sitio."""
+    return parse_qs(urlsplit(url_de_vuelta).query)["payment_id"][0]
 
 
 def solicitud_sin(campo):
@@ -87,6 +94,17 @@ def test_cp01_compra_con_tarjeta_mediante_mercado_pago_y_mail(
     assert cuerpo["estado"] == "PENDIENTE_DE_PAGO"
     # El mail de confirmación se envía cuando Mercado Pago aprueba el pago.
     assert notificador.enviados == []
+
+    # Vuelta desde Mercado Pago con el pago aprobado, como hace el front.
+    confirmacion = client.post(
+        f"/compras/{cuerpo['id']}/pago",
+        json={"id_pago": id_de_pago(cuerpo["url_pago"])},
+        headers=cabecera_usuario,
+    )
+
+    assert confirmacion.status_code == 200
+    assert confirmacion.json()["estado"] == "CONFIRMADA"
+    assert len(notificador.enviados) == 1
 
 
 @pytest.mark.parametrize(
@@ -174,6 +192,78 @@ def test_api_informa_si_mercado_pago_no_esta_disponible(
     respuesta = client.post(
         "/compras",
         json=solicitud_valida(medio_pago="TARJETA"),
+        headers=cabecera_usuario,
+    )
+
+    assert respuesta.status_code == 502
+    assert "Mercado Pago" in respuesta.json()["detail"]
+
+
+# 7. Confirmación del pago al volver de Mercado Pago
+
+
+def comprar_con_tarjeta(client, cabecera_usuario):
+    respuesta = client.post(
+        "/compras",
+        json=solicitud_valida(medio_pago="TARJETA"),
+        headers=cabecera_usuario,
+    )
+    return respuesta.json()
+
+
+def test_confirmar_el_pago_sin_iniciar_sesion_es_rechazado(
+    client, cabecera_usuario
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    respuesta = client.post(
+        f"/compras/{compra['id']}/pago",
+        json={"id_pago": id_de_pago(compra["url_pago"])},
+    )
+
+    assert respuesta.status_code == 401
+    assert respuesta.json()["detail"] == "Debe iniciar sesión"
+
+
+def test_confirmar_el_pago_de_una_compra_inexistente_responde_404(
+    client, cabecera_usuario
+):
+    respuesta = client.post(
+        "/compras/99/pago", json={"id_pago": "1"}, headers=cabecera_usuario
+    )
+
+    assert respuesta.status_code == 404
+
+
+def test_confirmar_un_pago_que_no_corresponde_a_la_compra_responde_400(
+    client, cabecera_usuario, notificador
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    respuesta = client.post(
+        f"/compras/{compra['id']}/pago",
+        json={"id_pago": "SIMULADO-99"},
+        headers=cabecera_usuario,
+    )
+
+    assert respuesta.status_code == 400
+    assert "no corresponde" in respuesta.json()["detail"]
+    assert notificador.enviados == []
+
+
+def test_api_informa_si_no_se_puede_consultar_el_pago(
+    client, cabecera_usuario, pasarela_pago, monkeypatch
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    def mercado_pago_caido(id_pago):
+        raise PagoNoDisponibleError()
+
+    monkeypatch.setattr(pasarela_pago, "consultar_pago", mercado_pago_caido)
+
+    respuesta = client.post(
+        f"/compras/{compra['id']}/pago",
+        json={"id_pago": id_de_pago(compra["url_pago"])},
         headers=cabecera_usuario,
     )
 
