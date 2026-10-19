@@ -37,8 +37,25 @@ function mostrarPantalla() {
   const email = sesionEnMemoria;
   $("pantalla-ingreso").hidden = Boolean(email);
   $("pantalla-compra").hidden = !email;
+  $("pantalla-pago-aprobado").hidden = true;
   $("sesion").hidden = !email;
   $("sesion-email").textContent = email || "";
+}
+
+// Pantalla propia para el pago aprobado, con el resumen de la compra (cantidad
+// de entradas y fecha) y el botón para volver al inicio del flujo.
+function mostrarPagoAprobado(compra) {
+  if ($("dialogo").open) $("dialogo").close();
+  $("pantalla-ingreso").hidden = true;
+  $("pantalla-compra").hidden = true;
+  $("aprobado-resumen").textContent = `${compra.mensaje}.`;
+  $("aprobado-numero").textContent = compra.id;
+  $("aprobado-pase").textContent = compra.tipo_pase === "VIP" ? "VIP" : "Regular";
+  $("aprobado-total").textContent = pesos.format(compra.total);
+  $("aprobado-mail").textContent = `Te enviamos un mail de confirmación a ${sesionEnMemoria}.`;
+  $("pantalla-pago-aprobado").hidden = false;
+  window.scrollTo(0, 0);
+  $("volver-al-inicio").focus();
 }
 
 $("form-ingreso").addEventListener("submit", (evento) => {
@@ -389,12 +406,7 @@ async function verificarPago() {
       compraEnEspera = null;
       guardarCompraPendiente(null);
       clearInterval(temporizadorDePago);
-      abrirDialogo({
-        titulo: "¡Pago aprobado!",
-        mensaje: `${datos.mensaje}. Tus entradas están confirmadas.`,
-        detalle: `Compra n.º ${datos.id} · Total ${pesos.format(datos.total)}.`,
-        mail: sesionEnMemoria,
-      });
+      mostrarPagoAprobado(datos);
     } else if (datos.pago === "rechazado") {
       $("dialogo-titulo").textContent = "Pago rechazado";
       $("dialogo-mensaje").textContent =
@@ -453,12 +465,7 @@ async function informarVueltaDeMercadoPago() {
   try {
     const compra = await confirmarPago(idCompra, idPago);
     if (compra.estado === "CONFIRMADA") {
-      abrirDialogo({
-        titulo: "¡Pago aprobado!",
-        mensaje: `${compra.mensaje}. Tus entradas están confirmadas.`,
-        detalle: `${detalle} Total ${pesos.format(compra.total)}.`,
-        mail: sesionEnMemoria,
-      });
+      mostrarPagoAprobado(compra);
       return;
     }
     const [titulo, mensaje] = ESTADOS_DE_PAGO[estado] || [
