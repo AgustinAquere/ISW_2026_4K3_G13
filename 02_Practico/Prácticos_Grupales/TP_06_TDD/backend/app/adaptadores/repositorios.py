@@ -1,3 +1,6 @@
+from app.dominio.modelos import EstadoCompra
+
+
 class RepositorioUsuariosEnMemoria:
     def __init__(self, emails_registrados=()):
         self._emails = set(emails_registrados)
@@ -32,4 +35,5 @@ class RepositorioComprasEnMemoria:
             for compra in self._compras.values()
             if compra.email_usuario == email
             and compra.fecha_visita == fecha_visita
+            and compra.estado != EstadoCompra.ANULADA
         )
