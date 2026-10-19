@@ -176,7 +176,7 @@ def test_consulta_el_pago_aprobado_a_mercado_pago():
     assert solicitud.method == "GET"
     assert str(solicitud.url) == f"{URL_PAGOS_MERCADO_PAGO}/123"
     assert solicitud.headers["Authorization"] == "Bearer TEST-123"
-    assert pago == PagoInformado("123", True, 7, 15000)
+    assert pago == PagoInformado("123", True, "7", 15000)
 
 
 @pytest.mark.parametrize("estado", ["rejected", "pending", "in_process"])
@@ -262,7 +262,7 @@ def test_busca_los_pagos_de_la_compra_por_su_numero():
     assert solicitud.url.params["sort"] == "date_created"
     assert solicitud.url.params["criteria"] == "desc"
     assert solicitud.headers["Authorization"] == "Bearer TEST-123"
-    assert pago == PagoInformado("123", True, 7, 15000)
+    assert pago == PagoInformado("123", True, "7", 15000)
 
 
 def test_sin_pagos_la_busqueda_no_informa_ninguno():
@@ -336,3 +336,12 @@ def test_el_titulo_del_pago_escribe_la_fecha_con_palabras():
         f"EcoHarmony Park: 2 entradas REGULAR para el {fecha}"
     )
     assert "/" not in item["title"]
+
+
+def test_la_preferencia_usa_la_referencia_de_pago_de_la_compra():
+    api = MercadoPagoFalso()
+
+    pasarela(api).crear_pago(compra_con_tarjeta(referencia_pago="ref-unica"))
+
+    preferencia = json.loads(api.solicitudes[0].content)
+    assert preferencia["external_reference"] == "ref-unica"

@@ -434,3 +434,29 @@ def test_api_verificacion_con_mercado_pago_caido_responde_502(
 
     assert respuesta.status_code == 502
     assert "Mercado Pago" in respuesta.json()["detail"]
+
+
+def test_cp37_un_pago_ajeno_con_el_mismo_numero_de_compra_no_la_confirma(
+    client, cabecera_usuario, mercado_pago_simulado, notificador
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+    # Pago aprobado de otra compra con el mismo número y el mismo total (de
+    # una base anterior o de otro integrante con las mismas credenciales).
+    ajena = mercado_pago_simulado.crear_preferencia(
+        {
+            "items": [
+                {"title": "otra", "quantity": 1, "unit_price": compra["total"]}
+            ],
+            "external_reference": str(compra["id"]),
+            "back_urls": dict.fromkeys(
+                ("success", "failure", "pending"), "http://otro-sitio/"
+            ),
+        }
+    )
+    mercado_pago_simulado.pagar(ajena["id"], "APRO", "visa", "3704")
+
+    cuerpo = verificar(client, compra, cabecera_usuario).json()
+
+    assert cuerpo["estado"] == "PENDIENTE_DE_PAGO"
+    assert cuerpo["pago"] == "sin_pago"
+    assert notificador.enviados == []
