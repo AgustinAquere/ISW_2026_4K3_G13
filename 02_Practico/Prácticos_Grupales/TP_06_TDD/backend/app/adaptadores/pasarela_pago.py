@@ -36,7 +36,7 @@ class PasarelaMercadoPago:
                 {
                     "title": f"EcoHarmony Park: {compra.cantidad} {palabra} "
                     f"{compra.tipo_pase.value} para el "
-                    f"{compra.fecha_visita:%d/%m/%Y}",
+                    f"{_fecha_con_palabras(compra.fecha_visita)}",
                     "quantity": 1,
                     "unit_price": compra.total,
                     "currency_id": "ARS",
@@ -98,6 +98,28 @@ class PasarelaMercadoPago:
             return None
         aprobados = [pago for pago in pagos if pago["status"] == "approved"]
         return _pago_informado((aprobados or pagos)[0])
+
+
+# Mercado Pago le quita las barras al título: "20/10/2026" se ve
+# "20102026", así que la fecha va con palabras.
+MESES = (
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+)
+
+
+def _fecha_con_palabras(fecha):
+    return f"{fecha.day} de {MESES[fecha.month - 1]} de {fecha.year}"
 
 
 def _pago_informado(datos):
