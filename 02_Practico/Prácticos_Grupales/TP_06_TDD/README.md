@@ -25,6 +25,8 @@ El objetivo es desarrollar un sistema de compra de entradas para un parque, apli
 - `backend/app/routers/`: endpoints HTTP.
 - `backend/tests/unit/`: pruebas unitarias del dominio y del servicio.
 - `backend/tests/`: pruebas de la API.
+- `CONSIGNA.md`: consigna del TP 6 y User Story asignada.
+- `FAQ_PO.md`: respuestas del PO que aclaran el dominio (precios, días de cierre, límites).
 - `BACKLOG.md`: casos de prueba y su estado.
 - `DECISIONES_DE_DISENO.md`: justificación del diseño y supuestos.
 - `CICLO_TDD.md`: registro de los ciclos Red-Green-Refactor y verificación de las pruebas (mutaciones).
