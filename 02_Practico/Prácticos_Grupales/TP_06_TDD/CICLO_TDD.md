@@ -576,11 +576,11 @@ La base creada antes del ciclo 13 se actualizó sola con la columna del estado. 
 
 ### 8.1 Contexto
 
-- **Ciclos 19 a 22:** siguen el plan [docs/plan-mercado-pago-simulado.md](docs/plan-mercado-pago-simulado.md). Construyen un Mercado Pago simulado que responde con el mismo contrato que la API real, para usarlo cuando no hay credenciales.
-- **Integración real, en modo prueba:** a mitad del plan el grupo decidió priorizarla y la probó con la cuenta de un integrante.
+- **Ciclos 19 a 22:** construyen un Mercado Pago simulado que responde con el mismo contrato que la API real, para usarlo cuando no hay credenciales.
+- **Integración real, en modo prueba:** a mitad de esos ciclos el grupo decidió priorizarla y la probó con la cuenta de un integrante.
 - **Mercado Pago no vuelve solo a una dirección local:** al crear una preferencia con `auto_return` y `back_urls` en `http://127.0.0.1` o `http://localhost`, la API respondió `400 auto_return invalid. back_url.success must be defined`. Con una URL `https` respondió `201`.
 - **La solución:** el checkout se abre en otra pestaña, y la pestaña del sitio le pregunta al backend si la compra ya se pagó. El backend busca el pago en Mercado Pago por el número de compra (ciclos 23 a 25).
-- **Lo que queda en pausa:** la página de checkout simulada (Tarea 5 del plan) queda mínima.
+- **Lo que queda en pausa:** la página de checkout simulada queda mínima.
 
 ### 8.2 Commits de cada ciclo
 
