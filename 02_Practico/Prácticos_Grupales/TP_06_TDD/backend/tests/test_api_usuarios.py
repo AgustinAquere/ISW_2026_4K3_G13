@@ -7,9 +7,9 @@ from tests.test_api_compras import solicitud_valida
 
 EMAIL_NUEVO = "nuevo@mail.com"
 
-# Registro simulado sin contraseña: el registro real pertenece a otra User
-# Story (FAQ 19). Sirve para mostrar que solo un usuario registrado puede
-# comprar (CP-07).
+# Registro simulado sin contraseña: el registro real pertenece a otra
+# User Story (FAQ 19). Sirve para mostrar que solo un usuario registrado
+# puede comprar (CP-07).
 
 
 @pytest.fixture

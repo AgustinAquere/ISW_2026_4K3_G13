@@ -47,7 +47,7 @@ class RepositorioComprasSQLite:
     )
 
     def __init__(self, conexion):
-        """Crea la tabla si falta y agrega columnas a bases anteriores."""
+        """Crea la tabla si falta y migra las bases anteriores."""
         self._conexion = conexion
         with self._conexion:
             self._conexion.execute(
@@ -82,7 +82,7 @@ class RepositorioComprasSQLite:
                 )
 
     def guardar(self, compra):
-        """Guarda la compra, le asigna el número de la base y la devuelve."""
+        """Guarda la compra con el número que asigna la base."""
         with self._conexion:
             cursor = self._conexion.execute(
                 "INSERT INTO compras (email_usuario, fecha_visita, cantidad, "

@@ -54,7 +54,7 @@ class VerificacionPagoResponse(CompraResponse):
 
     @classmethod
     def desde_verificacion(cls, compra, pago):
-        """Arma la respuesta con la compra y el pago encontrado (o None)."""
+        """Arma la respuesta con la compra y el pago (o None)."""
         if compra.estado == EstadoCompra.CONFIRMADA:
             estado_del_pago = "aprobado"
         elif pago is None:

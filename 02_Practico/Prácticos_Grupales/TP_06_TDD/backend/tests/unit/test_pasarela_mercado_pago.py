@@ -200,7 +200,8 @@ def test_si_no_se_puede_consultar_el_pago_se_informa_el_error():
 
 
 def test_un_id_de_pago_que_no_es_numerico_no_se_consulta():
-    # Evita armar la URL de la API con texto arbitrario recibido del front.
+    # Evita armar la URL de la API con texto arbitrario recibido del
+    # front.
     api = ApiDePagosFalsa()
 
     pago = pasarela(api).consultar_pago("../usuarios")
@@ -217,9 +218,9 @@ def test_un_pago_rechazado_se_informa_como_rechazado():
     assert not pago.aprobado
 
 
-# Búsqueda de los pagos de una compra: cuando Mercado Pago se abre en otra
-# pestaña, el sitio no recibe el id del pago y lo busca por el número de
-# compra (external_reference).
+# Búsqueda de los pagos de una compra: cuando Mercado Pago se abre en
+# otra pestaña, el sitio no recibe el id del pago y lo busca por el
+# número de compra (external_reference).
 
 
 class BusquedaDePagosFalsa:
@@ -304,8 +305,8 @@ def test_si_no_se_puede_buscar_el_pago_se_informa_el_error():
         pasarela(BusquedaDePagosFalsa(status_code=500)).buscar_pago(7)
 
 
-# Mercado Pago le quita las barras al título ("20/10/2026" se ve "20102026"):
-# la fecha va escrita con palabras.
+# Mercado Pago le quita las barras al título ("20/10/2026" se ve
+# "20102026"): la fecha va escrita con palabras.
 MESES = (
     "enero",
     "febrero",
@@ -347,9 +348,10 @@ def test_la_preferencia_usa_la_referencia_de_pago_de_la_compra():
     assert preferencia["external_reference"] == "ref-unica"
 
 
-# En modo prueba Mercado Pago solo acepta pagos de un comprador de prueba
-# ("Una de las partes con la que intentás hacer el pago es de prueba"): la
-# preferencia lleva su email para que el checkout lo traiga completado.
+# En modo prueba Mercado Pago solo acepta pagos de un comprador de
+# prueba ("Una de las partes con la que intentás hacer el pago es de
+# prueba"): la preferencia lleva su email para que el checkout lo traiga
+# completado.
 
 EMAIL_COMPRADOR_PRUEBA = "TESTUSER123@testuser.com"
 

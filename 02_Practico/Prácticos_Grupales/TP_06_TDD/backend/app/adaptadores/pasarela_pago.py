@@ -13,7 +13,8 @@ URL_PAGOS_MERCADO_PAGO = f"{URL_API_MERCADO_PAGO}/v1/payments"
 class PasarelaMercadoPago:
     """Crea una preferencia de Checkout Pro y devuelve la URL de pago.
 
-    url_api permite hablarle al Mercado Pago simulado con el mismo código.
+    url_api permite hablarle al Mercado Pago simulado con el mismo
+    código.
     """
 
     def __init__(
@@ -39,7 +40,7 @@ class PasarelaMercadoPago:
         return {"Authorization": f"Bearer {self._access_token}"}
 
     def crear_pago(self, compra):
-        """Crea la preferencia de pago y devuelve el link del checkout."""
+        """Crea la preferencia y devuelve el link del checkout."""
         palabra = "entrada" if compra.cantidad == 1 else "entradas"
         preferencia = {
             "items": [
@@ -60,8 +61,8 @@ class PasarelaMercadoPago:
         if self._url_retorno.startswith("https://"):
             preferencia["auto_return"] = "approved"
         if self._email_comprador_prueba:
-            # En modo prueba solo paga un comprador de prueba: el checkout
-            # trae su email completado.
+            # En modo prueba solo paga un comprador de prueba: el
+            # checkout trae su email completado.
             preferencia["payer"] = {"email": self._email_comprador_prueba}
         try:
             respuesta = self._cliente.post(
@@ -73,13 +74,14 @@ class PasarelaMercadoPago:
         except httpx.HTTPError as error:
             raise PagoNoDisponibleError() from error
         datos = respuesta.json()
-        # Las credenciales de prueba solo funcionan en el checkout de prueba.
+        # Las credenciales de prueba solo funcionan en el checkout de
+        # prueba.
         if self._access_token.startswith("TEST-"):
             return datos["sandbox_init_point"]
         return datos["init_point"]
 
     def consultar_pago(self, id_pago):
-        """Consulta un pago por su id; uno no numérico no está aprobado."""
+        """Consulta un pago; un id no numérico no está aprobado."""
         if not id_pago.isdigit():
             return PagoInformado(id_pago, False, None, 0)
         try:
@@ -95,8 +97,8 @@ class PasarelaMercadoPago:
     def buscar_pago(self, referencia):
         """Busca el pago de la compra por su referencia.
 
-        Si el checkout se abrió en otra pestaña, el sitio no recibe el id
-        del pago: lo busca por la referencia de la compra
+        Si el checkout se abrió en otra pestaña, el sitio no recibe el
+        id del pago: lo busca por la referencia de la compra
         (external_reference). Prefiere un pago aprobado y devuelve None
         si no hay pagos.
         """

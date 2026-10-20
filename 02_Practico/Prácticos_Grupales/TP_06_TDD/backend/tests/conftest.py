@@ -51,7 +51,7 @@ class MercadoPagoQueInforma:
 
 
 class RelojFijo:
-    """Reloj controlable para que las pruebas no dependan de la fecha real."""
+    """Reloj controlable: las pruebas no dependen de la fecha real."""
 
     def __init__(self, ahora):
         self.ahora_actual = ahora

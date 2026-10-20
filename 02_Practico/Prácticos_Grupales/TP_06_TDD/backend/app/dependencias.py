@@ -44,13 +44,13 @@ logger = logging.getLogger("uvicorn.error")
 
 
 def usuarios_registrados(configuracion):
-    """Devuelve los emails de USUARIOS_REGISTRADOS o el de demostración."""
+    """Lista los emails registrados (USUARIOS_REGISTRADOS)."""
     emails = configuracion.get("USUARIOS_REGISTRADOS", USUARIO_DE_DEMOSTRACION)
     return [email.strip() for email in emails.split(",") if email.strip()]
 
 
 def crear_pasarela_pago(configuracion, simulador=None, cliente=None):
-    """Crea la pasarela de Mercado Pago, o la simulada si no hay token."""
+    """Crea la pasarela de Mercado Pago (simulada si no hay token)."""
     access_token = configuracion.get("MP_ACCESS_TOKEN")
     url_retorno = configuracion.get("URL_PUBLICA", URL_PUBLICA_POR_DEFECTO)
     if access_token:
