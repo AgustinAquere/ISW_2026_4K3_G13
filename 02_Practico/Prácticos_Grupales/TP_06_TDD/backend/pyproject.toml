@@ -1,12 +1,28 @@
-# Reglas de estilo del grupo: PEP 8 verificado con Ruff.
+# Reglas de estilo del grupo: PEP 8, y PEP 257 para los docstrings,
+# verificadas con Ruff. Detalle en REGLAS_DE_ESTILO.md.
 [tool.ruff]
 line-length = 79
 target-version = "py312"
 
 [tool.ruff.lint]
 # E/W: pycodestyle (PEP 8), F: pyflakes, I: orden de imports (isort),
-# N: nombres (pep8-naming), B: errores comunes (flake8-bugbear).
-select = ["E", "W", "F", "I", "N", "B"]
+# N: nombres (pep8-naming), B: errores comunes (flake8-bugbear),
+# D: docstrings (pydocstyle).
+select = ["E", "W", "F", "I", "N", "B", "D"]
+# Las reglas de PEP 8 sobre espacios y líneas en blanco (E1, E2 y E3) son
+# "preview" en Ruff: sin esta opción no se verifican.
+preview = true
+
+[tool.ruff.lint.pycodestyle]
+# Comentarios y docstrings: 72 columnas, como pide PEP 8.
+max-doc-length = 72
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+# Las pruebas no son API pública: el nombre de cada una describe su caso.
+"tests/**" = ["D"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
