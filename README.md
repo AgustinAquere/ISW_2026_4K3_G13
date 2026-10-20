@@ -1,5 +1,7 @@
 ## *2026-ISW-4K3-Grupo13*
 
+El proyecto ejecutable es el TP 6 (compra de entradas de EcoHarmony Park): ver [su README](02_Practico/Prácticos_Grupales/TP_06_TDD/README.md). Las instrucciones para agentes de código (Claude Code, Codex, Cursor) están en [AGENTS.md](AGENTS.md).
+
 *Información sobre integrantes:*
 
 * 85625 - Lorello, Luciano Gabriel - [lorelloluciano68@gmail.com](mailto:lorelloluciano68@gmail.com) - LLorello
