@@ -68,3 +68,5 @@ El Grupo 13 es impar, por lo que corresponde **Comprar entradas** (8 SP).
 | Pruebas automatizadas | [`backend/tests/`](backend/tests/) y su trazabilidad en [BACKLOG.md](BACKLOG.md) |
 | Documento de decisiones de diseño | [DECISIONES_DE_DISENO.md](DECISIONES_DE_DISENO.md) |
 | Evidencia del ciclo Red-Green-Refactor | [CICLO_TDD.md](CICLO_TDD.md) |
+
+Las reglas de estilo de código, una de las entradas, están en [REGLAS_DE_ESTILO.md](REGLAS_DE_ESTILO.md). El documento de estilos del TP 2 no está en el repositorio, así que el grupo adoptó PEP 8, la guía de estilo oficial de Python.
