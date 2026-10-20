@@ -1,3 +1,5 @@
+"""Envío del mail de confirmación de la compra."""
+
 import smtplib
 from email.message import EmailMessage
 from html import escape
@@ -15,19 +17,23 @@ class NotificadorEnMemoria:
     """Doble de prueba: registra los mails en lugar de enviarlos."""
 
     def __init__(self):
+        """Empieza sin mails enviados."""
         self.enviados = []
 
     def enviar_confirmacion(self, compra):
+        """Registra la compra en lugar de enviar el mail."""
         self.enviados.append(compra)
 
 
 class NotificadorEmailLog:
-    """Simula el envío del mail de confirmación escribiéndolo en el log."""
+    """Simula el envío del mail: lo escribe en el log."""
 
     def __init__(self, logger):
+        """Recibe el logger donde se escriben los mails."""
         self._logger = logger
 
     def enviar_confirmacion(self, compra):
+        """Escribe en el log el destinatario y el resumen."""
         self._logger.info(
             "Mail de confirmación a %s: %s",
             compra.email_usuario,
@@ -48,6 +54,10 @@ class NotificadorSMTP:
         logger,
         smtp=smtplib.SMTP,
     ):
+        """Recibe el servidor, las credenciales y el remitente.
+
+        smtp permite reemplazar smtplib.SMTP en las pruebas.
+        """
         self._host = host
         self._puerto = puerto
         self._usuario = usuario
@@ -57,6 +67,7 @@ class NotificadorSMTP:
         self._smtp = smtp
 
     def enviar_confirmacion(self, compra):
+        """Envía el mail en texto y HTML; un fallo queda en el log."""
         mensaje = EmailMessage()
         mensaje["From"] = self._remitente
         mensaje["To"] = compra.email_usuario
@@ -69,7 +80,8 @@ class NotificadorSMTP:
                 servidor.login(self._usuario, self._contrasena)
                 servidor.send_message(mensaje)
         except OSError:
-            # La compra ya está registrada: un mail fallido no debe anularla.
+            # La compra ya está registrada: un mail fallido no debe
+            # anularla.
             self._logger.exception(
                 "No se pudo enviar el mail de confirmación a %s",
                 compra.email_usuario,
@@ -126,7 +138,7 @@ def _medio_de_pago(compra):
 
 
 def _entradas(compra):
-    """Número, edad y precio de cada entrada, con los precios del dominio."""
+    """Número, edad y precio de cada entrada, según el dominio."""
     return [
         (numero, edad, calcular_precio_entrada(edad, compra.tipo_pase))
         for numero, edad in enumerate(compra.edades, start=1)

@@ -1,7 +1,7 @@
 """API del Mercado Pago simulado, con el mismo contrato que la real.
 
-La usan dos entradas: un transporte de httpx dentro del mismo proceso (para
-PasarelaMercadoPago) y el router HTTP (para /docs y curl).
+La usan dos entradas: un transporte de httpx dentro del mismo proceso
+(para PasarelaMercadoPago) y el router HTTP (para /docs y curl).
 """
 
 import json
@@ -34,6 +34,7 @@ CAMINO_PAGO = re.compile(r"/v1/payments/([^/]+)")
 def responder_api(
     simulador, metodo, camino, autorizacion, cuerpo, parametros=None
 ):
+    """Atiende la API simulada: devuelve el estado y el JSON."""
     if autorizacion != f"Bearer {TOKEN_SIMULADO}":
         return 401, NO_AUTORIZADO
     if metodo == "GET" and camino == "/v1/payments/search":
@@ -58,6 +59,8 @@ def responder_api(
 
 
 def transporte_en_proceso(simulador):
+    """Devuelve un transporte de httpx que atiende la API sin red."""
+
     def atender(solicitud):
         if not solicitud.url.path.startswith(PREFIJO_API_SIMULADA):
             return httpx.Response(404, json=RECURSO_NO_ENCONTRADO)

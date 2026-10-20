@@ -1,8 +1,8 @@
 """Mercado Pago simulado: preferencias y pagos en memoria.
 
 Imita Checkout Pro para hacer la demo sin cuenta de Mercado Pago. El
-titular de la tarjeta define el resultado, igual que las tarjetas de prueba
-reales.
+titular de la tarjeta define el resultado, igual que las tarjetas de
+prueba reales.
 """
 
 import uuid
@@ -31,7 +31,7 @@ BACK_URL_POR_ESTADO = {
 
 
 class PreferenciaInexistenteError(Exception):
-    """La preferencia no existe (por ejemplo, se reinició el servidor)."""
+    """La preferencia no existe, por ejemplo tras un reinicio."""
 
 
 class PreferenciaYaPagadaError(Exception):
@@ -39,7 +39,10 @@ class PreferenciaYaPagadaError(Exception):
 
 
 class MercadoPagoSimulado:
+    """Preferencias y pagos de Checkout Pro, guardados en memoria."""
+
     def __init__(self, url_publica):
+        """Recibe la URL pública del sitio, que sirve el checkout."""
         self._url_publica = url_publica.rstrip("/") + "/"
         self._preferencias = {}
         self._pagos = {}
@@ -47,6 +50,7 @@ class MercadoPagoSimulado:
         self._ids_de_orden = count(2000000001)
 
     def crear_preferencia(self, datos):
+        """Crea la preferencia y la devuelve con el link al checkout."""
         id_preferencia = f"{COLLECTOR_ID}-{uuid.uuid4()}"
         checkout = (
             f"{self._url_publica}mercadopago-simulado/checkout"
@@ -63,12 +67,15 @@ class MercadoPagoSimulado:
         return preferencia
 
     def obtener_preferencia(self, id_preferencia):
+        """Devuelve la preferencia, o None si no existe."""
         return self._preferencias.get(id_preferencia)
 
     def preferencias_creadas(self):
+        """Devuelve todas las preferencias creadas."""
         return list(self._preferencias.values())
 
     def total(self, id_preferencia):
+        """Suma el precio de los ítems de la preferencia."""
         preferencia = self._preferencia(id_preferencia)
         return sum(
             item["unit_price"] * item["quantity"]
@@ -76,6 +83,10 @@ class MercadoPagoSimulado:
         )
 
     def pagar(self, id_preferencia, titular, marca, ultimos_digitos):
+        """Registra un pago con el resultado que define el titular.
+
+        Lanza PreferenciaInexistenteError o PreferenciaYaPagadaError.
+        """
         preferencia = self._preferencia(id_preferencia)
         if self.esta_pagada(id_preferencia):
             raise PreferenciaYaPagadaError()
@@ -100,10 +111,14 @@ class MercadoPagoSimulado:
         return pago
 
     def obtener_pago(self, id_pago):
+        """Devuelve el pago, o None si no existe."""
         return self._pagos.get(id_pago)
 
     def buscar_pagos(self, external_reference):
-        # El más reciente primero, como sort=date_created y criteria=desc.
+        """Devuelve los pagos de la referencia, el más reciente primero.
+
+        Imita la búsqueda real con sort=date_created y criteria=desc.
+        """
         return sorted(
             (
                 pago
@@ -115,6 +130,7 @@ class MercadoPagoSimulado:
         )
 
     def pagos_de_preferencia(self, id_preferencia):
+        """Devuelve los pagos de la preferencia."""
         return [
             pago
             for pago in self._pagos.values()
@@ -122,6 +138,7 @@ class MercadoPagoSimulado:
         ]
 
     def url_de_vuelta(self, id_pago):
+        """Arma la URL de vuelta al sitio con los datos del pago."""
         pago = self._pagos[id_pago]
         preferencia = self._preferencias[pago["preference_id"]]
         back_url = preferencia["back_urls"][
@@ -148,6 +165,7 @@ class MercadoPagoSimulado:
         return preferencia
 
     def esta_pagada(self, id_preferencia):
+        """Indica si la preferencia tiene un pago aprobado."""
         return any(
             pago["status"] == "approved"
             for pago in self.pagos_de_preferencia(id_preferencia)

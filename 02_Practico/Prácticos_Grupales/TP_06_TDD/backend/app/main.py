@@ -1,3 +1,5 @@
+"""Aplicación FastAPI: compras, registro simulado y front."""
+
 from pathlib import Path
 
 from fastapi import FastAPI
