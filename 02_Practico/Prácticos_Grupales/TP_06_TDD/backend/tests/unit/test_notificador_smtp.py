@@ -151,9 +151,9 @@ def test_si_el_mail_no_se_puede_enviar_la_compra_no_falla(caplog):
     assert "No se pudo enviar el mail" in caplog.text
 
 
-# Versión HTML del mail, con la estética de la pantalla de confirmación del
-# sitio (paleta y logo del parque). La versión de texto se mantiene para los
-# clientes de correo que no muestran HTML.
+# Versión HTML del mail, con la estética de la pantalla de confirmación
+# del sitio (paleta y logo del parque). La versión de texto se mantiene
+# para los clientes de correo que no muestran HTML.
 
 
 def test_el_mail_tiene_una_version_html_con_el_resumen_de_la_compra(servidor):
@@ -209,8 +209,8 @@ def test_el_mail_html_usa_la_paleta_del_sitio(servidor):
 def test_el_mail_html_no_lleva_imagenes_y_muestra_el_nombre_del_parque(
     servidor,
 ):
-    # El logo como imagen dentro del mail aparecía en Gmail como adjunto:
-    # el encabezado lleva solo el nombre del parque.
+    # El logo como imagen dentro del mail aparecía en Gmail como
+    # adjunto: el encabezado lleva solo el nombre del parque.
     notificador(servidor).enviar_confirmacion(compra_nueva())
 
     mensaje = mail_enviado(servidor)
@@ -224,9 +224,9 @@ def test_el_mail_html_no_lleva_imagenes_y_muestra_el_nombre_del_parque(
     ]
 
 
-# Medio de pago y detalle de la compra: una fila por entrada, con la edad y
-# el precio de cada una, y el total al final. compra_nueva(): pase regular,
-# edades 40 (precio completo) y 8 (50 %), total $15.000.
+# Medio de pago y detalle de la compra: una fila por entrada, con la
+# edad y el precio de cada una, y el total al final. compra_nueva():
+# pase regular, edades 40 (precio completo) y 8 (50 %), total $15.000.
 
 
 @pytest.mark.parametrize(

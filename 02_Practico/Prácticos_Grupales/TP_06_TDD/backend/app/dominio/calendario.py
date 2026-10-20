@@ -1,3 +1,5 @@
+"""Días y horarios en que se pueden comprar entradas."""
+
 from datetime import time, timedelta
 
 from app.dominio.errores import CompraInvalidaError
@@ -9,6 +11,7 @@ HORA_LIMITE_COMPRA_DIA_ACTUAL = time(17, 30)
 
 
 def esta_abierto(fecha):
+    """Indica si el parque abre: cierra los lunes, el 1/1 y el 25/12."""
     return (
         fecha.weekday() != LUNES
         and (fecha.month, fecha.day) not in FERIADOS_CERRADO
@@ -16,6 +19,11 @@ def esta_abierto(fecha):
 
 
 def validar_fecha_visita(fecha_visita, ahora):
+    """Valida la fecha de visita respecto de la fecha y hora actuales.
+
+    Lanza CompraInvalidaError si la fecha es pasada, supera los 31 días
+    de anticipación, es hoy después de las 17:30 o el parque cierra.
+    """
     hoy = ahora.date()
     if fecha_visita < hoy:
         raise CompraInvalidaError("La fecha de visita no puede ser pasada")
@@ -34,6 +42,7 @@ def validar_fecha_visita(fecha_visita, ahora):
 
 
 def fechas_disponibles(ahora):
+    """Lista las fechas válidas desde hoy hasta dentro de 31 días."""
     hoy = ahora.date()
     candidatas = (
         hoy + timedelta(days=dias)

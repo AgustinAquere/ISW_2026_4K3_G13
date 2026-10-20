@@ -14,7 +14,7 @@ El objetivo es desarrollar un sistema de compra de entradas para un parque, apli
 - **Pagos:** Mercado Pago Checkout Pro (modo prueba) mediante su API REST.
 - **Mail:** SMTP con `smtplib` de la biblioteca estándar.
 - **Testing:** pytest, HTTPX y pytest-cov.
-- **Estilo de código:** PEP 8, verificado con Ruff (`backend/pyproject.toml`).
+- **Estilo de código:** PEP 8, y PEP 257 para los docstrings, verificados con Ruff (`backend/pyproject.toml`). Las reglas están en [REGLAS_DE_ESTILO.md](REGLAS_DE_ESTILO.md).
 
 ## Estructura del proyecto
 
@@ -30,6 +30,7 @@ El objetivo es desarrollar un sistema de compra de entradas para un parque, apli
 - `CONFIGURACION_CREDENCIALES.md`: paso a paso para enviar mails reales y usar Mercado Pago en modo prueba.
 - `BACKLOG.md`: casos de prueba y su estado.
 - `DECISIONES_DE_DISENO.md`: justificación del diseño y supuestos.
+- `REGLAS_DE_ESTILO.md`: reglas de estilo de código (PEP 8) y cómo se verifican.
 - `CICLO_TDD.md`: registro de los ciclos Red-Green-Refactor y verificación de las pruebas (mutaciones).
 
 ## Configuración del backend
@@ -131,6 +132,7 @@ Con el entorno virtual activado (en Windows y en Linux):
 ```bash
 pytest --cov=app
 ruff check app tests
+ruff format --check app tests
 ```
 
 ## Metodología de trabajo

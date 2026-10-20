@@ -102,8 +102,8 @@ def test_un_camino_desconocido_responde_404(simulador):
     assert estado == 404
 
 
-# PasarelaMercadoPago es la misma clase en los dos modos: en el simulado le
-# habla al simulador por un transporte dentro del mismo proceso.
+# PasarelaMercadoPago es la misma clase en los dos modos: en el simulado
+# le habla al simulador por un transporte dentro del mismo proceso.
 
 
 def test_la_pasarela_crea_la_preferencia_en_el_simulador(simulador):
@@ -183,7 +183,8 @@ def test_la_api_busca_los_pagos_por_referencia(simulador):
 
     assert estado == 200
     assert cuerpo["paging"]["total"] == 2
-    # El más reciente primero, como con sort=date_created y criteria=desc.
+    # El más reciente primero, como con sort=date_created y
+    # criteria=desc.
     assert [pago["id"] for pago in cuerpo["results"]] == [
         aprobado["id"],
         rechazado["id"],
@@ -215,8 +216,9 @@ def test_la_pasarela_busca_el_pago_en_el_simulador(simulador):
     assert informado == PagoInformado(str(pago["id"]), True, "7", 15000)
 
 
-# El transporte en proceso atiende solo la ruta de la API simulada, como un
-# servidor real: si la pasarela le hablara a otra dirección, no respondería.
+# El transporte en proceso atiende solo la ruta de la API simulada, como
+# un servidor real: si la pasarela le hablara a otra dirección, no
+# respondería.
 
 
 def test_el_transporte_solo_atiende_la_api_simulada(simulador):
