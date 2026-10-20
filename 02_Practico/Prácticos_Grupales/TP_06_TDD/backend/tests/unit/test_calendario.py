@@ -25,8 +25,8 @@ from tests.fechas import (
 
 
 def test_cp12_fecha_anterior_a_hoy_es_rechazada():
-    # Ayer (valor límite). HOY se eligió para que ayer el parque abriera:
-    # así solo aplica la regla de fecha pasada.
+    # Ayer (valor límite). HOY se eligió para que ayer el parque
+    # abriera: así solo aplica la regla de fecha pasada.
     with pytest.raises(CompraInvalidaError, match="pasada"):
         validar_fecha_visita(HOY - UN_DIA, AHORA)
 
@@ -53,7 +53,8 @@ def test_feriado_en_que_cierra_el_parque_es_rechazado(mes, dia):
 def proxima_fecha_que_no_cae_lunes(mes, dia):
     """Próximo (mes, día) futuro que no es lunes.
 
-    Así la prueba solo evalúa la regla de los feriados y no la de los lunes.
+    Así la prueba solo evalúa la regla de los feriados y no la de los
+    lunes.
     """
     fecha = date(HOY.year, mes, dia)
     while fecha <= HOY or fecha.weekday() == LUNES:
@@ -102,8 +103,8 @@ def test_fecha_futura_con_parque_abierto_es_aceptada():
     validar_fecha_visita(FECHA_VISITA, AHORA)
 
 
-# Fechas que el calendario del front ofrece (FAQ 2: los días cerrados no se
-# pueden elegir).
+# Fechas que el calendario del front ofrece (FAQ 2: los días cerrados no
+# se pueden elegir).
 
 
 def test_fechas_disponibles_van_de_hoy_a_31_dias_sin_lunes():

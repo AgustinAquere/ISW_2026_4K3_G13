@@ -1,8 +1,8 @@
 """Mercado Pago simulado: preferencias y pagos en memoria.
 
 Imita Checkout Pro para hacer la demo sin cuenta de Mercado Pago. El
-titular de la tarjeta define el resultado, igual que las tarjetas de prueba
-reales.
+titular de la tarjeta define el resultado, igual que las tarjetas de
+prueba reales.
 """
 
 import uuid
@@ -31,7 +31,7 @@ BACK_URL_POR_ESTADO = {
 
 
 class PreferenciaInexistenteError(Exception):
-    """La preferencia no existe (por ejemplo, se reinició el servidor)."""
+    """La preferencia no existe, por ejemplo tras un reinicio."""
 
 
 class PreferenciaYaPagadaError(Exception):

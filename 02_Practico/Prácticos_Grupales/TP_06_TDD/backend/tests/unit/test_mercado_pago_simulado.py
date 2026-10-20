@@ -22,7 +22,7 @@ def simulador():
 
 
 def preferencia(simulador, **cambios):
-    """Crea una preferencia válida; cada prueba cambia solo lo que evalúa."""
+    """Preferencia válida; cada prueba cambia solo lo que evalúa."""
     datos = {
         "items": [
             {

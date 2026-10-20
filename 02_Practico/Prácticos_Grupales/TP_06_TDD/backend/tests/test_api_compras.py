@@ -29,7 +29,7 @@ def id_de_pago(url_de_vuelta):
 
 
 def pagar_en_checkout(client, url_pago, titular):
-    """Paga en el checkout simulado como lo haría el profesor en la demo.
+    """Paga en el checkout simulado, como el profesor en la demo.
 
     Devuelve la URL con la que Mercado Pago vuelve al sitio.
     """
@@ -112,10 +112,12 @@ def test_cp01_compra_con_tarjeta_mediante_mercado_pago_y_mail(
     assert cuerpo["fecha_visita"] == FECHA_VISITA.isoformat()
     assert cuerpo["total"] == 50000  # 2 VIP completos + 1 VIP al 50 %
     assert cuerpo["estado"] == "PENDIENTE_DE_PAGO"
-    # El mail de confirmación se envía cuando Mercado Pago aprueba el pago.
+    # El mail de confirmación se envía cuando Mercado Pago aprueba el
+    # pago.
     assert notificador.enviados == []
 
-    # Pago con tarjeta en el checkout y vuelta al sitio, como hace el front.
+    # Pago con tarjeta en el checkout y vuelta al sitio, como hace el
+    # front.
     vuelta = pagar_en_checkout(client, cuerpo["url_pago"], "APRO")
     confirmacion = client.post(
         f"/compras/{cuerpo['id']}/pago",
@@ -325,7 +327,8 @@ def test_api_informa_si_no_se_puede_consultar_el_pago(
 def test_confirmar_con_un_pago_inexistente_responde_502(
     client, cabecera_usuario
 ):
-    # Mercado Pago no conoce ese pago (por ejemplo, se reinició el servidor).
+    # Mercado Pago no conoce ese pago (por ejemplo, se reinició el
+    # servidor).
     compra = comprar_con_tarjeta(client, cabecera_usuario)
 
     respuesta = client.post(
@@ -353,7 +356,8 @@ def test_cp35_pago_rechazado_deja_la_compra_pendiente_y_se_puede_reintentar(
     assert respuesta.json()["estado"] == "PENDIENTE_DE_PAGO"
     assert notificador.enviados == []
 
-    # "Pagar con otra tarjeta" en el checkout: misma preferencia, otro pago.
+    # "Pagar con otra tarjeta" en el checkout: misma preferencia, otro
+    # pago.
     aprobado = pagar_en_checkout(client, compra["url_pago"], "APRO")
     respuesta = client.post(
         f"/compras/{compra['id']}/pago",
@@ -365,8 +369,8 @@ def test_cp35_pago_rechazado_deja_la_compra_pendiente_y_se_puede_reintentar(
     assert len(notificador.enviados) == 1
 
 
-# 8. Verificación del pago hecho en otra pestaña: el sitio no recibe el id
-# del pago y le pregunta al backend si la compra ya se pagó.
+# 8. Verificación del pago hecho en otra pestaña: el sitio no recibe el
+# id del pago y le pregunta al backend si la compra ya se pagó.
 
 
 def verificar(client, compra, cabeceras):
@@ -465,8 +469,9 @@ def test_cp37_un_pago_ajeno_con_el_mismo_numero_de_compra_no_la_confirma(
     client, cabecera_usuario, mercado_pago_simulado, notificador
 ):
     compra = comprar_con_tarjeta(client, cabecera_usuario)
-    # Pago aprobado de otra compra con el mismo número y el mismo total (de
-    # una base anterior o de otro integrante con las mismas credenciales).
+    # Pago aprobado de otra compra con el mismo número y el mismo total
+    # (de una base anterior o de otro integrante con las mismas
+    # credenciales).
     ajena = mercado_pago_simulado.crear_preferencia(
         {
             "items": [

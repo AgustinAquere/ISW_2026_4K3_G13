@@ -26,8 +26,9 @@ class ServicioCompra:
         self._compras = compras
         self._notificador = notificador
         self._pasarela_pago = pasarela_pago
-        # FastAPI atiende cada solicitud en un hilo: confirmar o verificar un
-        # pago se hace de a uno para que el mail salga una sola vez.
+        # FastAPI atiende cada solicitud en un hilo: confirmar o
+        # verificar un pago se hace de a uno para que el mail salga una
+        # sola vez.
         self._pagos_en_curso = threading.Lock()
 
     def comprar(self, solicitud):
@@ -50,9 +51,9 @@ class ServicioCompra:
             medio_pago=solicitud.medio_pago,
             total=total,
             estado=estado,
-            # El número de compra se repite si se borra la base o si otro
-            # integrante usa las mismas credenciales: el pago se busca por
-            # una referencia única.
+            # El número de compra se repite si se borra la base o si
+            # otro integrante usa las mismas credenciales: el pago se
+            # busca por una referencia única.
             referencia_pago=uuid.uuid4().hex
             if estado == EstadoCompra.PENDIENTE_DE_PAGO
             else None,
@@ -65,7 +66,7 @@ class ServicioCompra:
         return compra
 
     def confirmar_pago(self, email_usuario, id_compra, id_pago):
-        """Confirma la compra con el pago informado al volver del pago."""
+        """Confirma la compra con el pago informado al volver."""
         with self._pagos_en_curso:
             compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
             if compra.estado == EstadoCompra.CONFIRMADA:
@@ -76,7 +77,7 @@ class ServicioCompra:
             return compra
 
     def verificar_pago(self, email_usuario, id_compra):
-        """Busca el pago por el número de compra (pago en otra pestaña)."""
+        """Busca el pago de la compra (si se pagó en otra pestaña)."""
         with self._pagos_en_curso:
             compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
             if compra.estado == EstadoCompra.CONFIRMADA:
@@ -119,8 +120,9 @@ class ServicioCompra:
 
     @staticmethod
     def _estado_inicial(medio_pago, total):
-        # Con tarjeta se confirma cuando Mercado Pago aprueba el pago. Una
-        # compra sin costo no pasa por Mercado Pago, que no cobra $0.
+        # Con tarjeta se confirma cuando Mercado Pago aprueba el pago.
+        # Una compra sin costo no pasa por Mercado Pago, que no cobra
+        # $0.
         if medio_pago == MedioPago.TARJETA and total > 0:
             return EstadoCompra.PENDIENTE_DE_PAGO
         return EstadoCompra.CONFIRMADA

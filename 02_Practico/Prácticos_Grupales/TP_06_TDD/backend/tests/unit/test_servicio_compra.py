@@ -30,7 +30,7 @@ from tests.fechas import (
 
 
 def solicitud(**cambios):
-    """Arma una solicitud válida; cada prueba cambia solo lo que evalúa."""
+    """Solicitud válida; cada prueba cambia solo lo que evalúa."""
     datos = {
         "email_usuario": EMAIL_REGISTRADO,
         "fecha_visita": FECHA_VISITA,
@@ -75,8 +75,8 @@ def test_cp27_cantidad_distinta_a_edades_informadas_es_rechazada(servicio):
         servicio.comprar(solicitud(cantidad=3, edades=[25, 30]))
 
 
-# FAQ 27 del PO: el máximo de 10 entradas es por usuario y fecha, sumando
-# todas sus compras.
+# FAQ 27 del PO: el máximo de 10 entradas es por usuario y fecha,
+# sumando todas sus compras.
 
 
 def test_cp28_superar_10_entradas_para_una_fecha_sumando_compras_es_rechazado(
@@ -129,8 +129,9 @@ def test_cp28_el_limite_se_cuenta_por_usuario(
 
 
 def test_cp28_una_compra_pendiente_de_pago_cuenta_para_el_limite(servicio):
-    # Las entradas con el pago en curso quedan reservadas: solo las compras
-    # anuladas dejan de contar (DECISIONES_DE_DISENO.md, FAQ 27).
+    # Las entradas con el pago en curso quedan reservadas: solo las
+    # compras anuladas dejan de contar (DECISIONES_DE_DISENO.md,
+    # FAQ 27).
     servicio.comprar(
         solicitud(cantidad=6, edades=[30] * 6, medio_pago=MedioPago.TARJETA)
     )
@@ -203,7 +204,8 @@ def test_cp24_pago_con_tarjeta_redirige_a_mercado_pago(
 def test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago(
     servicio, mercado_pago_simulado
 ):
-    # Mercado Pago no acepta cobros de $0: los menores de 4 años no pagan.
+    # Mercado Pago no acepta cobros de $0: los menores de 4 años no
+    # pagan.
     compra = servicio.comprar(
         solicitud(edades=[1, 3], medio_pago=MedioPago.TARJETA)
     )
@@ -450,8 +452,8 @@ def test_confirmar_el_pago_de_una_compra_anulada_es_rechazado(
     assert mercado_pago.consultados == []
 
 
-# 9. Verificación del pago sin el id del pago: Mercado Pago se abre en otra
-# pestaña y el sitio busca el pago por el número de compra.
+# 9. Verificación del pago sin el id del pago: Mercado Pago se abre en
+# otra pestaña y el sitio busca el pago por el número de compra.
 
 
 def test_cp36_verificar_un_pago_aprobado_confirma_la_compra_y_envia_el_mail(
@@ -564,9 +566,9 @@ def test_verificar_el_pago_de_una_compra_anulada_es_rechazado(
     assert mercado_pago.buscados == []
 
 
-# 10. Referencia de pago única: el número de compra se repite si se borra la
-# base o si otro integrante usa las mismas credenciales de Mercado Pago, así
-# que la búsqueda de pagos no puede usarlo.
+# 10. Referencia de pago única: el número de compra se repite si se
+# borra la base o si otro integrante usa las mismas credenciales de
+# Mercado Pago, así que la búsqueda de pagos no puede usarlo.
 
 
 def test_cp37_cada_compra_con_tarjeta_tiene_una_referencia_de_pago_unica(
@@ -613,9 +615,9 @@ def test_una_compra_sin_referencia_de_pago_usa_su_numero():
     assert compra.referencia_externa() == "7"
 
 
-# 11. Verificaciones simultáneas: al volver a la pestaña del sitio pueden
-# llegar dos consultas a la vez (la del intervalo y la de visibilitychange),
-# y FastAPI las atiende en hilos distintos.
+# 11. Verificaciones simultáneas: al volver a la pestaña del sitio
+# pueden llegar dos consultas a la vez (la del intervalo y la de
+# visibilitychange), y FastAPI las atiende en hilos distintos.
 
 
 class MercadoPagoLento(MercadoPagoQueInforma):
