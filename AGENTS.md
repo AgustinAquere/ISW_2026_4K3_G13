@@ -31,10 +31,6 @@ Todos los comandos se ejecutan desde `02_Practico/Prácticos_Grupales/TP_06_TDD/
    - Para comprar hay que ingresar con un email registrado, por ejemplo `visitante@ecoharmony.com`, o registrar uno con el botón "Registrarme".
    - Si hay SMTP configurado, comprar con `visitante@ecoharmony.com` envía un mail real a ese dominio, que es de un tercero. Para probar el mail conviene registrar un correo propio.
 
-**Alternativa en Windows:**
-- **`.\iniciar-demo.cmd -Local`:** hace los pasos 2, 3, 4 y 6 en un solo comando. Las dependencias las reinstala solo si cambió `requirements.txt`.
-- **Sin `-Local`:** además publica la app en un link público con `cloudflared`. Usalo solo si la persona lo pide.
-
 Más detalle en `02_Practico/Prácticos_Grupales/TP_06_TDD/README.md`.
 
 ## Al modificar el código
