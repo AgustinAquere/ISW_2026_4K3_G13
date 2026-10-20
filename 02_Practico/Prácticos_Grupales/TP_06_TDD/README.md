@@ -67,6 +67,8 @@ pip install -r requirements.txt
 
 > Un entorno virtual creado en Windows no funciona en Linux, y viceversa. Si se trabaja sobre la misma carpeta desde Windows y desde WSL, se usan dos entornos: `.venv` para Windows y `.venv-linux` para Linux. Ambos están excluidos del repositorio en `.gitignore`.
 
+**Después de cada `git pull`, volver a correr `pip install -r requirements.txt`**, aunque el entorno ya exista: `requirements.txt` fija versiones (por ejemplo, Ruff 0.17.1) y un entorno viejo da errores de estilo que no son del código.
+
 En cada nueva terminal hay que volver a activar el entorno (`.\.venv\Scripts\Activate.ps1` en Windows, `source .venv-linux/bin/activate` en Linux). Para desactivarlo: `deactivate`.
 
 ### Credenciales de Mercado Pago y del mail
@@ -96,7 +98,7 @@ Uso: doble clic en `backend/iniciar-demo.cmd`, o desde PowerShell en `backend`:
 ```
 
 Qué hace el script:
-1. La primera vez crea `.venv` e instala las dependencias.
+1. La primera vez crea `.venv`. Instala las dependencias la primera vez y cada vez que cambia `requirements.txt`, por ejemplo después de un pull.
 2. Abre el túnel y escribe el link en `URL_PUBLICA` del `.env` (con `https`, Mercado Pago vuelve solo al sitio después de pagar).
 3. Levanta la app, muestra el link y lo copia al portapapeles.
 
