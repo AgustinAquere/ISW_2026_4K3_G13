@@ -1,3 +1,5 @@
+"""Endpoints de la compra de entradas."""
+
 from contextlib import contextmanager
 from typing import Annotated
 
@@ -31,7 +33,10 @@ router = APIRouter()
 def usuario_en_sesion(
     x_usuario_email: Annotated[str | None, Header()] = None,
 ):
-    # Sesión simulada (FAQ 19): la cabecera representa al usuario logueado.
+    """Devuelve el email de la sesión simulada (FAQ 19).
+
+    La cabecera X-Usuario-Email representa al usuario logueado.
+    """
     if x_usuario_email is None:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, "Debe iniciar sesión"
@@ -49,6 +54,7 @@ def comprar_entradas(
     servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
     email_usuario: Annotated[str, Depends(usuario_en_sesion)],
 ):
+    """Compra entradas para el usuario en sesión."""
     solicitud = SolicitudCompra(
         email_usuario=email_usuario, **compra.model_dump()
     )
@@ -95,6 +101,7 @@ def confirmar_pago(
     servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
     email_usuario: Annotated[str, Depends(usuario_en_sesion)],
 ):
+    """Confirma el pago al volver de Mercado Pago."""
     with errores_del_pago():
         compra = servicio.confirmar_pago(
             email_usuario, id_compra, confirmacion.id_pago
@@ -111,6 +118,7 @@ def verificar_pago(
     servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
     email_usuario: Annotated[str, Depends(usuario_en_sesion)],
 ):
+    """Busca el pago de la compra, si se pagó en otra pestaña."""
     with errores_del_pago():
         compra, pago = servicio.verificar_pago(email_usuario, id_compra)
     return VerificacionPagoResponse.desde_verificacion(compra, pago)
@@ -120,11 +128,13 @@ def verificar_pago(
 def consultar_fechas_disponibles(
     reloj: Annotated[RelojSistema, Depends(obtener_reloj)],
 ):
+    """Lista las fechas en que se pueden comprar entradas."""
     return {"fechas": fechas_disponibles(reloj.ahora())}
 
 
 @router.post("/cotizacion", response_model=CotizacionResponse)
 def cotizar(cotizacion: CotizacionRequest):
+    """Calcula el total según las edades y el pase, antes de comprar."""
     total = sum(
         calcular_precio_entrada(edad, cotizacion.tipo_pase)
         for edad in cotizacion.edades

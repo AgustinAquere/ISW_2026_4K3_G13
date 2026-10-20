@@ -1,3 +1,9 @@
+"""Composición de la aplicación: arma el servicio con sus adaptadores.
+
+Lee la configuración del .env. Sin credenciales usa el Mercado Pago
+simulado y escribe los mails en el log.
+"""
+
 import logging
 import os
 import sqlite3
@@ -38,11 +44,13 @@ logger = logging.getLogger("uvicorn.error")
 
 
 def usuarios_registrados(configuracion):
+    """Devuelve los emails de USUARIOS_REGISTRADOS o el de demostración."""
     emails = configuracion.get("USUARIOS_REGISTRADOS", USUARIO_DE_DEMOSTRACION)
     return [email.strip() for email in emails.split(",") if email.strip()]
 
 
 def crear_pasarela_pago(configuracion, simulador=None, cliente=None):
+    """Crea la pasarela de Mercado Pago, o la simulada si no hay token."""
     access_token = configuracion.get("MP_ACCESS_TOKEN")
     url_retorno = configuracion.get("URL_PUBLICA", URL_PUBLICA_POR_DEFECTO)
     if access_token:
@@ -67,6 +75,7 @@ def crear_pasarela_pago(configuracion, simulador=None, cliente=None):
 
 
 def crear_notificador(configuracion):
+    """Crea el notificador SMTP, o uno que escribe en el log."""
     host = configuracion.get("SMTP_HOST")
     if not host:
         logger.warning("Sin SMTP_HOST: los mails se escriben en el log")
@@ -84,28 +93,38 @@ def crear_notificador(configuracion):
 
 @lru_cache
 def obtener_mercado_pago_simulado():
-    # Uno solo por proceso: guarda en memoria las preferencias y los pagos
-    # que comparten el checkout simulado y la pasarela.
+    """Devuelve el Mercado Pago simulado, uno solo por proceso.
+
+    Guarda en memoria las preferencias y los pagos que comparten el
+    checkout simulado y la pasarela.
+    """
     return MercadoPagoSimulado(
         os.environ.get("URL_PUBLICA", URL_PUBLICA_POR_DEFECTO)
     )
 
 
 def obtener_reloj():
+    """Devuelve el reloj del sistema."""
     return RelojSistema()
 
 
 @lru_cache
 def obtener_conexion():
-    # FastAPI atiende cada solicitud en un hilo distinto del que abrió la
-    # conexión, por eso se habilita su uso desde otros hilos.
+    """Devuelve la conexión a la base SQLite, una sola por proceso.
+
+    FastAPI atiende cada solicitud en un hilo distinto del que abrió la
+    conexión, por eso se habilita su uso desde otros hilos.
+    """
     return sqlite3.connect(RUTA_BASE_DE_DATOS, check_same_thread=False)
 
 
 @lru_cache
 def obtener_usuarios():
-    # El mismo repositorio para el registro simulado y para la compra: un
-    # email recién registrado ya puede comprar.
+    """Devuelve el repositorio de usuarios, uno solo por proceso.
+
+    Es el mismo para el registro simulado y para la compra: un email
+    recién registrado ya puede comprar.
+    """
     return RepositorioUsuariosSQLite(
         obtener_conexion(), usuarios_registrados(os.environ)
     )
@@ -113,6 +132,7 @@ def obtener_usuarios():
 
 @lru_cache
 def obtener_servicio_compra():
+    """Devuelve el servicio de compra, uno solo por proceso."""
     return ServicioCompra(
         reloj=RelojSistema(),
         usuarios=obtener_usuarios(),

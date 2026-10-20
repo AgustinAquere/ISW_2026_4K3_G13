@@ -1,3 +1,5 @@
+"""Envío del mail de confirmación de la compra."""
+
 import smtplib
 from email.message import EmailMessage
 from html import escape
@@ -15,9 +17,11 @@ class NotificadorEnMemoria:
     """Doble de prueba: registra los mails en lugar de enviarlos."""
 
     def __init__(self):
+        """Empieza sin mails enviados."""
         self.enviados = []
 
     def enviar_confirmacion(self, compra):
+        """Registra la compra en lugar de enviar el mail."""
         self.enviados.append(compra)
 
 
@@ -25,9 +29,11 @@ class NotificadorEmailLog:
     """Simula el envío del mail de confirmación escribiéndolo en el log."""
 
     def __init__(self, logger):
+        """Recibe el logger donde se escriben los mails."""
         self._logger = logger
 
     def enviar_confirmacion(self, compra):
+        """Escribe en el log el destinatario y el resumen de la compra."""
         self._logger.info(
             "Mail de confirmación a %s: %s",
             compra.email_usuario,
@@ -48,6 +54,10 @@ class NotificadorSMTP:
         logger,
         smtp=smtplib.SMTP,
     ):
+        """Recibe el servidor, las credenciales y el remitente.
+
+        smtp permite reemplazar smtplib.SMTP en las pruebas.
+        """
         self._host = host
         self._puerto = puerto
         self._usuario = usuario
@@ -57,6 +67,7 @@ class NotificadorSMTP:
         self._smtp = smtp
 
     def enviar_confirmacion(self, compra):
+        """Envía el mail en texto y en HTML; si falla, lo deja en el log."""
         mensaje = EmailMessage()
         mensaje["From"] = self._remitente
         mensaje["To"] = compra.email_usuario

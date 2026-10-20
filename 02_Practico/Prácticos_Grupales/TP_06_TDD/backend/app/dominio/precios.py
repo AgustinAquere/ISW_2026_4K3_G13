@@ -1,3 +1,5 @@
+"""Precio de las entradas y descuentos por edad."""
+
 from app.dominio.modelos import TipoPase
 
 # Supuesto: el enunciado no fija precios. Se expresan en pesos y son
@@ -14,6 +16,7 @@ DESCUENTO_POR_EDAD = 50  # porcentaje
 
 
 def porcentaje_descuento(edad):
+    """Devuelve el porcentaje de descuento que corresponde a la edad."""
     if edad <= EDAD_MAXIMA_SIN_COSTO:
         return 100
     if edad <= EDAD_MAXIMA_MENOR or edad >= EDAD_MINIMA_JUBILADO:
@@ -22,5 +25,6 @@ def porcentaje_descuento(edad):
 
 
 def calcular_precio_entrada(edad, tipo_pase):
+    """Calcula el precio en pesos de una entrada según edad y pase."""
     precio_base = PRECIO_BASE[tipo_pase]
     return precio_base * (100 - porcentaje_descuento(edad)) // 100

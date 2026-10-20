@@ -1,3 +1,5 @@
+"""Pasarela de pago con Mercado Pago Checkout Pro (API REST)."""
+
 import httpx
 
 from app.dominio.errores import PagoNoDisponibleError
@@ -22,6 +24,11 @@ class PasarelaMercadoPago:
         url_api=URL_API_MERCADO_PAGO,
         email_comprador_prueba=None,
     ):
+        """Recibe las credenciales y la URL a la que vuelve el pago.
+
+        email_comprador_prueba completa el email del checkout en modo
+        prueba.
+        """
         self._access_token = access_token
         self._url_retorno = url_retorno
         self._cliente = cliente or httpx.Client(timeout=10)
@@ -32,6 +39,7 @@ class PasarelaMercadoPago:
         return {"Authorization": f"Bearer {self._access_token}"}
 
     def crear_pago(self, compra):
+        """Crea la preferencia de pago y devuelve el link del checkout."""
         palabra = "entrada" if compra.cantidad == 1 else "entradas"
         preferencia = {
             "items": [
@@ -71,6 +79,7 @@ class PasarelaMercadoPago:
         return datos["init_point"]
 
     def consultar_pago(self, id_pago):
+        """Consulta un pago por su id; uno no numérico no está aprobado."""
         if not id_pago.isdigit():
             return PagoInformado(id_pago, False, None, 0)
         try:
@@ -84,9 +93,13 @@ class PasarelaMercadoPago:
         return _pago_informado(respuesta.json())
 
     def buscar_pago(self, referencia):
-        # Si el checkout se abrió en otra pestaña, el sitio no recibe el id
-        # del pago: lo busca por la referencia de la compra
-        # (external_reference).
+        """Busca el pago de la compra por su referencia.
+
+        Si el checkout se abrió en otra pestaña, el sitio no recibe el id
+        del pago: lo busca por la referencia de la compra
+        (external_reference). Prefiere un pago aprobado y devuelve None
+        si no hay pagos.
+        """
         try:
             respuesta = self._cliente.get(
                 f"{self._url_api}/v1/payments/search",

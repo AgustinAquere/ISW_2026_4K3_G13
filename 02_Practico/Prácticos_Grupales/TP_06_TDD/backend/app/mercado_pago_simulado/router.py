@@ -1,3 +1,5 @@
+"""Endpoints del Mercado Pago simulado: su API y el checkout."""
+
 import json
 from pathlib import Path
 from typing import Annotated, Literal
@@ -30,8 +32,12 @@ Simulador = Annotated[
 
 
 class PagoCheckoutRequest(BaseModel):
-    # El número de tarjeta, el código y el vencimiento no salen del
-    # navegador: si llegan, la solicitud se rechaza.
+    """Pago que envía la página del checkout simulado.
+
+    El número de tarjeta, el código y el vencimiento no salen del
+    navegador: si llegan, la solicitud se rechaza.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     titular: str = Field(min_length=1)
@@ -41,6 +47,7 @@ class PagoCheckoutRequest(BaseModel):
 
 @router.api_route("/api/{camino:path}", methods=["GET", "POST"])
 async def api_simulada(camino: str, request: Request, simulador: Simulador):
+    """Atiende la API simulada por HTTP, para /docs y curl."""
     contenido = await request.body()
     estado, respuesta = responder_api(
         simulador,
@@ -55,11 +62,13 @@ async def api_simulada(camino: str, request: Request, simulador: Simulador):
 
 @router.get("/checkout", include_in_schema=False)
 def pagina_de_checkout():
+    """Devuelve la página del checkout simulado."""
     return FileResponse(PAGINA_CHECKOUT)
 
 
 @router.get("/checkout/{id_preferencia}/datos")
 def datos_del_checkout(id_preferencia: str, simulador: Simulador):
+    """Devuelve la descripción, el total y si ya se pagó."""
     preferencia = simulador.obtener_preferencia(id_preferencia)
     if preferencia is None:
         raise HTTPException(
@@ -78,6 +87,7 @@ def datos_del_checkout(id_preferencia: str, simulador: Simulador):
 def pagar_desde_el_checkout(
     id_preferencia: str, pago: PagoCheckoutRequest, simulador: Simulador
 ):
+    """Paga la preferencia y devuelve la URL de vuelta al sitio."""
     try:
         creado = simulador.pagar(
             id_preferencia, pago.titular, pago.marca, pago.ultimos_digitos

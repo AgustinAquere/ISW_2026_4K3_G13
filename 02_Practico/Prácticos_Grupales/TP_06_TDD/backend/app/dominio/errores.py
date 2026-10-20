@@ -1,3 +1,6 @@
+"""Errores del dominio; los routers los traducen a códigos HTTP."""
+
+
 class UsuarioNoRegistradoError(Exception):
     """El usuario que intenta comprar no está registrado."""
 
