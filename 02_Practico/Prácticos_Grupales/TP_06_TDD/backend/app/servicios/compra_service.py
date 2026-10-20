@@ -1,3 +1,5 @@
+"""Caso de uso: comprar entradas y confirmar su pago."""
+
 import threading
 import uuid
 
@@ -15,7 +17,10 @@ CANTIDAD_MAXIMA = 10
 
 
 class ServicioCompra:
+    """Valida, calcula el total, registra, cobra y avisa por mail."""
+
     def __init__(self, reloj, usuarios, compras, notificador, pasarela_pago):
+        """Recibe el reloj, los repositorios, el mail y la pasarela."""
         self._reloj = reloj
         self._usuarios = usuarios
         self._compras = compras
@@ -26,6 +31,13 @@ class ServicioCompra:
         self._pagos_en_curso = threading.Lock()
 
     def comprar(self, solicitud):
+        """Registra la compra si cumple todas las reglas.
+
+        Con tarjeta y un total mayor a $0 queda pendiente de pago y se
+        genera el link de Mercado Pago; si no, se confirma y se envía el
+        mail. Lanza UsuarioNoRegistradoError, CompraInvalidaError o
+        PagoNoDisponibleError.
+        """
         self._validar(solicitud)
         total = self._calcular_total(solicitud)
         estado = self._estado_inicial(solicitud.medio_pago, total)
@@ -53,6 +65,7 @@ class ServicioCompra:
         return compra
 
     def confirmar_pago(self, email_usuario, id_compra, id_pago):
+        """Confirma la compra con el pago informado al volver del pago."""
         with self._pagos_en_curso:
             compra = self._compra_con_pago_pendiente(email_usuario, id_compra)
             if compra.estado == EstadoCompra.CONFIRMADA:

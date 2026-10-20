@@ -1,3 +1,5 @@
+"""Repositorios de usuarios y compras en SQLite."""
+
 import json
 from datetime import date
 
@@ -5,7 +7,10 @@ from app.dominio.modelos import Compra, EstadoCompra, MedioPago, TipoPase
 
 
 class RepositorioUsuariosSQLite:
+    """Usuarios registrados, en la tabla usuarios."""
+
     def __init__(self, conexion, emails_registrados=()):
+        """Crea la tabla si falta y registra los emails iniciales."""
         self._conexion = conexion
         with self._conexion:
             self._conexion.execute(
@@ -17,6 +22,7 @@ class RepositorioUsuariosSQLite:
             )
 
     def esta_registrado(self, email):
+        """Indica si el email está registrado."""
         fila = self._conexion.execute(
             "SELECT 1 FROM usuarios WHERE email = ?", (email,)
         ).fetchone()
@@ -32,6 +38,8 @@ class RepositorioUsuariosSQLite:
 
 
 class RepositorioComprasSQLite:
+    """Compras, en la tabla compras."""
+
     # url_pago no se guarda: se genera después de registrar la compra.
     _COLUMNAS = (
         "id, email_usuario, fecha_visita, cantidad, edades, tipo_pase, "
@@ -39,6 +47,7 @@ class RepositorioComprasSQLite:
     )
 
     def __init__(self, conexion):
+        """Crea la tabla si falta y agrega columnas a bases anteriores."""
         self._conexion = conexion
         with self._conexion:
             self._conexion.execute(
@@ -73,6 +82,7 @@ class RepositorioComprasSQLite:
                 )
 
     def guardar(self, compra):
+        """Guarda la compra, le asigna el número de la base y la devuelve."""
         with self._conexion:
             cursor = self._conexion.execute(
                 "INSERT INTO compras (email_usuario, fecha_visita, cantidad, "
@@ -94,6 +104,7 @@ class RepositorioComprasSQLite:
         return compra
 
     def obtener(self, id_compra):
+        """Devuelve la compra con ese número, o None si no existe."""
         fila = self._conexion.execute(
             f"SELECT {self._COLUMNAS} FROM compras WHERE id = ?",
             (id_compra,),
@@ -101,12 +112,14 @@ class RepositorioComprasSQLite:
         return None if fila is None else self._a_compra(fila)
 
     def listar(self):
+        """Devuelve todas las compras, ordenadas por número."""
         filas = self._conexion.execute(
             f"SELECT {self._COLUMNAS} FROM compras ORDER BY id"
         ).fetchall()
         return [self._a_compra(fila) for fila in filas]
 
     def actualizar_estado(self, compra):
+        """Guarda el nuevo estado de la compra."""
         with self._conexion:
             self._conexion.execute(
                 "UPDATE compras SET estado = ? WHERE id = ?",
@@ -114,6 +127,7 @@ class RepositorioComprasSQLite:
             )
 
     def entradas_compradas(self, email, fecha_visita):
+        """Suma las entradas no anuladas del usuario para la fecha."""
         (total,) = self._conexion.execute(
             "SELECT COALESCE(SUM(cantidad), 0) FROM compras "
             "WHERE email_usuario = ? AND fecha_visita = ? AND estado != ?",

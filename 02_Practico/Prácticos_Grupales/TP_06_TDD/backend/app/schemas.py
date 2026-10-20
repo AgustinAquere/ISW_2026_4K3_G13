@@ -1,3 +1,5 @@
+"""Esquemas de entrada y salida de la API."""
+
 from datetime import date
 from typing import Annotated, Literal
 
@@ -7,6 +9,8 @@ from app.dominio.modelos import EstadoCompra, MedioPago, TipoPase
 
 
 class CompraRequest(BaseModel):
+    """Datos de la compra que envía el front."""
+
     fecha_visita: date
     cantidad: int
     edades: list[int]
@@ -15,6 +19,8 @@ class CompraRequest(BaseModel):
 
 
 class CompraResponse(BaseModel):
+    """Compra registrada, con el mensaje para el visitante."""
+
     id: int
     fecha_visita: date
     cantidad: int
@@ -27,6 +33,7 @@ class CompraResponse(BaseModel):
 
     @classmethod
     def desde_compra(cls, compra):
+        """Arma la respuesta a partir de una compra del dominio."""
         return cls(
             id=compra.id,
             fecha_visita=compra.fecha_visita,
@@ -41,10 +48,13 @@ class CompraResponse(BaseModel):
 
 
 class VerificacionPagoResponse(CompraResponse):
+    """Compra y estado de su pago en Mercado Pago."""
+
     pago: Literal["aprobado", "rechazado", "pendiente", "sin_pago"]
 
     @classmethod
     def desde_verificacion(cls, compra, pago):
+        """Arma la respuesta con la compra y el pago encontrado (o None)."""
         if compra.estado == EstadoCompra.CONFIRMADA:
             estado_del_pago = "aprobado"
         elif pago is None:
@@ -60,17 +70,25 @@ class VerificacionPagoResponse(CompraResponse):
 
 
 class ConfirmacionPagoRequest(BaseModel):
+    """Id del pago que informa Mercado Pago al volver."""
+
     id_pago: str
 
 
 class CotizacionRequest(BaseModel):
+    """Edades y pase para calcular el total."""
+
     edades: list[Annotated[int, Field(ge=0)]]
     tipo_pase: TipoPase
 
 
 class CotizacionResponse(BaseModel):
+    """Total en pesos."""
+
     total: int
 
 
 class FechasDisponiblesResponse(BaseModel):
+    """Fechas en que se pueden comprar entradas."""
+
     fechas: list[date]
