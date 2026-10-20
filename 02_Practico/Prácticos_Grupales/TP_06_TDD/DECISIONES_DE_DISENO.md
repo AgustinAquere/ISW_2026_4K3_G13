@@ -27,10 +27,12 @@ Las cuatro pruebas de usuario de la tarjeta están automatizadas: CP-01 (pasa), 
 
 - **Lenguaje:** Python 3.12+ con **FastAPI** (API REST) y **Pydantic** (validación de datos de entrada).
 - **Pruebas:** **pytest** con `TestClient` de FastAPI; cobertura medida con `pytest-cov`.
-- **Estilo de código:** **PEP 8**, verificado automáticamente con **Ruff** (configuración en `backend/pyproject.toml`):
-  - Líneas de 79 caracteres como máximo, indentación de 4 espacios.
+- **Estilo de código:** **PEP 8**, con **PEP 257** para los docstrings. El documento de estilos del TP 2 no está en el repositorio, así que el grupo adoptó PEP 8 y lo resumió, con ejemplos del proyecto, en [REGLAS_DE_ESTILO.md](REGLAS_DE_ESTILO.md). Se verifica automáticamente con **Ruff** (configuración en `backend/pyproject.toml`):
+  - Líneas de código de 79 caracteres como máximo; comentarios y docstrings, de 72. Indentación de 4 espacios.
+  - Espacios y líneas en blanco de `pycodestyle`, incluidas las reglas que Ruff tiene en *preview*. Por eso Ruff está fijado en la versión 0.17.1.
   - `snake_case` para funciones y variables, `PascalCase` para clases y `MAYUSCULAS` para constantes (`pep8-naming`).
   - Imports ordenados: biblioteca estándar, terceros y módulos propios (`isort`).
+  - Docstrings en todo módulo, clase, función y método público (`pydocstyle`, convención `pep257`). Las pruebas no llevan: no son API pública y su nombre ya describe el caso.
   - Reglas `flake8-bugbear` (por ejemplo, encadenar excepciones con `raise ... from`).
   - Nombres del dominio en español, el mismo idioma de la User Story, para que el código use el vocabulario del negocio.
 - **Formato:** `ruff format`, para que el estilo no dependa de quién escribe el código.
@@ -173,8 +175,9 @@ Desde `backend/`, en Windows (las instrucciones para Linux/WSL están en el [REA
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-pytest --cov=app            # pruebas y cobertura
-ruff check app tests        # reglas de estilo
+pytest --cov=app               # pruebas y cobertura
+ruff check app tests           # reglas de estilo (PEP 8 y PEP 257)
+ruff format --check app tests  # formato
 uvicorn app.main:app --reload
 ```
 
