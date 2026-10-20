@@ -4,7 +4,8 @@
     (https) con un túnel de Cloudflare.
 
 .DESCRIPTION
-    1. La primera vez crea el entorno virtual .venv e instala las dependencias.
+    1. La primera vez crea el entorno virtual .venv. Instala las
+       dependencias la primera vez y cada vez que cambia requirements.txt.
     2. Verifica que exista .env (si no, lo copia de .env.example y avisa).
     3. Abre un túnel rápido de Cloudflare hacia la app y espera su link https.
     4. Escribe ese link en URL_PUBLICA del .env: es a donde vuelve Mercado Pago
@@ -59,15 +60,23 @@ function Buscar-PythonBase {
 }
 
 function Preparar-Entorno {
-    if (Test-Path $PythonVenv) { return }
-    Escribir-Paso "Primera vez: creando el entorno virtual e instalando dependencias (puede tardar unos minutos)"
-    $Base = Buscar-PythonBase
-    $Ejecutable = $Base[0]
-    $Argumentos = @($Base | Select-Object -Skip 1) + @("-m", "venv", ".venv")
-    & $Ejecutable @Argumentos
-    if ($LASTEXITCODE -ne 0) { throw "No se pudo crear el entorno virtual .venv." }
+    if (-not (Test-Path $PythonVenv)) {
+        Escribir-Paso "Primera vez: creando el entorno virtual (puede tardar unos minutos)"
+        $Base = Buscar-PythonBase
+        $Ejecutable = $Base[0]
+        $Argumentos = @($Base | Select-Object -Skip 1) + @("-m", "venv", ".venv")
+        & $Ejecutable @Argumentos
+        if ($LASTEXITCODE -ne 0) { throw "No se pudo crear el entorno virtual .venv." }
+    }
+    # Las dependencias se reinstalan cada vez que cambia requirements.txt
+    # (por ejemplo, después de un pull), no solo la primera vez.
+    $Huella = (Get-FileHash (Join-Path $PSScriptRoot "requirements.txt") -Algorithm SHA256).Hash
+    $Marca = Join-Path $PSScriptRoot ".venv\requirements.sha256"
+    if ((Test-Path $Marca) -and ((Get-Content $Marca -Raw).Trim() -eq $Huella)) { return }
+    Escribir-Paso "Instalando las dependencias de requirements.txt"
     & $PythonVenv -m pip install --disable-pip-version-check -q -r requirements.txt
     if ($LASTEXITCODE -ne 0) { throw "No se pudieron instalar las dependencias (requirements.txt)." }
+    Set-Content -Path $Marca -Value $Huella -Encoding ascii
 }
 
 function Verificar-Env {
