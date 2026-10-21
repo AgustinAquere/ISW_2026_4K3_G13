@@ -14,6 +14,7 @@ from app.dominio.modelos import Compra, EstadoCompra, MedioPago
 from app.dominio.precios import calcular_precio_entrada
 
 CANTIDAD_MAXIMA = 10
+EDAD_MAXIMA = 100
 
 
 class ServicioCompra:
@@ -168,9 +169,10 @@ class ServicioCompra:
             )
         if len(solicitud.edades) != solicitud.cantidad:
             raise CompraInvalidaError("Debe indicar la edad de cada visitante")
-        if any(edad < 0 for edad in solicitud.edades):
+        if not all(0 <= edad <= EDAD_MAXIMA for edad in solicitud.edades):
             raise CompraInvalidaError(
-                "La edad de un visitante no puede ser negativa"
+                "La edad de cada visitante debe estar entre 0 y "
+                f"{EDAD_MAXIMA} años"
             )
 
     def _validar_limite_por_fecha(self, solicitud):
