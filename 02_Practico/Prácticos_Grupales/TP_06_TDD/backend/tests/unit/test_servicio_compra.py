@@ -666,3 +666,137 @@ def test_dos_verificaciones_al_mismo_tiempo_envian_un_solo_mail(
 
     assert compra.estado == EstadoCompra.CONFIRMADA
     assert len(notificador.enviados) == 1
+
+
+# 12. Cancelar una compra pendiente de pago: la compra se registra
+# antes de pagar, así que cancelarla la anula y libera sus entradas.
+
+
+def test_cp40_cancelar_una_compra_pendiente_la_anula(
+    servicio_mp, compras, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+
+    anulada = servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    assert anulada.estado == EstadoCompra.ANULADA
+    assert compras.obtener(compra.id).estado == EstadoCompra.ANULADA
+    assert notificador.enviados == []
+
+
+def test_cp40_una_compra_cancelada_no_cuenta_para_el_limite(servicio_mp):
+    compra = servicio_mp.comprar(
+        solicitud(cantidad=1, edades=[30], medio_pago=MedioPago.TARJETA)
+    )
+
+    servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+    completa = servicio_mp.comprar(solicitud(cantidad=10, edades=[30] * 10))
+
+    assert completa.cantidad == 10
+
+
+def test_cancelar_una_compra_inexistente_es_rechazado(servicio_mp):
+    with pytest.raises(CompraNoEncontradaError):
+        servicio_mp.anular_compra(EMAIL_REGISTRADO, 99)
+
+
+def test_cancelar_una_compra_de_otro_usuario_es_rechazado(
+    reloj, compras, notificador, mercado_pago
+):
+    otro_usuario = "otro@ecoharmony.com"
+    servicio = ServicioCompra(
+        reloj,
+        RepositorioUsuariosEnMemoria([EMAIL_REGISTRADO, otro_usuario]),
+        compras,
+        notificador,
+        mercado_pago,
+    )
+    compra = compra_con_tarjeta(servicio)
+
+    with pytest.raises(CompraNoEncontradaError):
+        servicio.anular_compra(otro_usuario, compra.id)
+
+    assert compras.obtener(compra.id).estado == EstadoCompra.PENDIENTE_DE_PAGO
+
+
+def test_una_compra_confirmada_no_se_puede_cancelar(servicio_mp, compras):
+    compra = servicio_mp.comprar(solicitud(medio_pago=MedioPago.EFECTIVO))
+
+    with pytest.raises(CompraInvalidaError, match="confirmada"):
+        servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    assert compras.obtener(compra.id).estado == EstadoCompra.CONFIRMADA
+
+
+def test_cancelar_dos_veces_la_misma_compra_no_falla(servicio_mp):
+    # Por ejemplo, un doble clic en "Cancelar".
+    compra = compra_con_tarjeta(servicio_mp)
+    servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    anulada = servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    assert anulada.estado == EstadoCompra.ANULADA
+
+
+def test_cancelar_una_compra_ya_pagada_la_confirma_en_vez_de_anularla(
+    servicio_mp, mercado_pago, compras, notificador
+):
+    # El usuario pagó en la pestaña de Mercado Pago y tocó "Cancelar"
+    # antes de que el sitio detectara el pago.
+    compra = compra_con_tarjeta(servicio_mp)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
+
+    resultado = servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    assert resultado.estado == EstadoCompra.CONFIRMADA
+    assert compras.obtener(compra.id).estado == EstadoCompra.CONFIRMADA
+    assert notificador.enviados == [resultado]
+
+
+def test_si_mercado_pago_no_responde_la_compra_no_se_cancela(
+    servicio_mp, mercado_pago, compras, monkeypatch
+):
+    compra = compra_con_tarjeta(servicio_mp)
+    monkeypatch.setattr(mercado_pago, "buscar_pago", mercado_pago_caido)
+
+    with pytest.raises(PagoNoDisponibleError):
+        servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    assert compras.obtener(compra.id).estado == EstadoCompra.PENDIENTE_DE_PAGO
+
+
+def test_cancelar_mientras_se_verifica_el_pago_envia_un_solo_mail(
+    reloj, usuarios, compras, notificador
+):
+    mercado_pago = MercadoPagoLento()
+    servicio = ServicioCompra(
+        reloj, usuarios, compras, notificador, mercado_pago
+    )
+    compra = compra_con_tarjeta(servicio)
+    mercado_pago.pago = PagoInformado(
+        "pago-1", True, compra.referencia_externa(), compra.total
+    )
+    errores = []
+
+    def cancelar(email_usuario, id_compra):
+        try:
+            servicio.anular_compra(email_usuario, id_compra)
+        except CompraInvalidaError as error:
+            errores.append(str(error))
+
+    hilos = [
+        threading.Thread(target=accion, args=(EMAIL_REGISTRADO, compra.id))
+        for accion in (servicio.verificar_pago, cancelar)
+    ]
+
+    for hilo in hilos:
+        hilo.start()
+    for hilo in hilos:
+        hilo.join()
+
+    assert compra.estado == EstadoCompra.CONFIRMADA
+    assert len(notificador.enviados) == 1
+    # Si la verificación confirma primero, cancelar ya no puede anular.
+    assert all("confirmada" in error for error in errores)

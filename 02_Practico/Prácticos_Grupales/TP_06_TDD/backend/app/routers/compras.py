@@ -77,7 +77,7 @@ def comprar_entradas(
 
 @contextmanager
 def errores_del_pago():
-    """Traduce los errores al confirmar o verificar un pago."""
+    """Traduce los errores al confirmar, verificar o anular un pago."""
     try:
         yield
     except CompraNoEncontradaError as error:
@@ -122,6 +122,18 @@ def verificar_pago(
     with errores_del_pago():
         compra, pago = servicio.verificar_pago(email_usuario, id_compra)
     return VerificacionPagoResponse.desde_verificacion(compra, pago)
+
+
+@router.post("/compras/{id_compra}/anulacion", response_model=CompraResponse)
+def anular_compra(
+    id_compra: int,
+    servicio: Annotated[ServicioCompra, Depends(obtener_servicio_compra)],
+    email_usuario: Annotated[str, Depends(usuario_en_sesion)],
+):
+    """Anula la compra pendiente que el usuario cancela en el modal."""
+    with errores_del_pago():
+        compra = servicio.anular_compra(email_usuario, id_compra)
+    return CompraResponse.desde_compra(compra)
 
 
 @router.get("/fechas-disponibles", response_model=FechasDisponiblesResponse)
