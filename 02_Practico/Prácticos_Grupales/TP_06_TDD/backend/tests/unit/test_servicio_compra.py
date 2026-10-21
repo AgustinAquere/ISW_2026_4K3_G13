@@ -160,6 +160,19 @@ def test_cp18_edad_0_es_aceptada(servicio):
     assert compra.edades == [25, 0]
 
 
+@pytest.mark.parametrize("edad", [101, 549], ids=["CP-39-101", "CP-39-549"])
+def test_cp39_edad_mayor_a_100_es_rechazada(servicio, edad):
+    with pytest.raises(CompraInvalidaError, match="100 años"):
+        servicio.comprar(solicitud(edades=[25, edad]))
+
+
+def test_cp39_edad_100_es_aceptada(servicio):
+    # Valor límite de CP-39: 100 años es la edad máxima válida.
+    compra = servicio.comprar(solicitud(edades=[25, 100]))
+
+    assert compra.edades == [25, 100]
+
+
 def test_total_de_la_compra_suma_el_precio_de_cada_visitante(servicio):
     # Adulto (precio completo) + niño de 10 (50 %) + bebé de 2 (gratis).
     compra = servicio.comprar(
