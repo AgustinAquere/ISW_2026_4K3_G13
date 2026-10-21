@@ -147,6 +147,10 @@ class ServicioCompra:
             raise CompraInvalidaError(
                 "La edad de un visitante no puede ser negativa"
             )
+        if any(edad > 100 for edad in solicitud.edades):
+            raise CompraInvalidaError(
+                "La edad de un visitante no puede superar los 100 años"
+            )
 
     def _validar_limite_por_fecha(self, solicitud):
         ya_compradas = self._compras.entradas_compradas(
