@@ -87,6 +87,12 @@ class ServicioCompra:
                 self._aplicar_pago(compra, pago)
             return compra, pago
 
+    def anular_compra(self, email_usuario, id_compra):
+        """Anula la compra pendiente que el usuario cancela."""
+        compra = self._compras.obtener(id_compra)
+        self._cambiar_estado(compra, EstadoCompra.ANULADA)
+        return compra
+
     def _compra_con_pago_pendiente(self, email_usuario, id_compra):
         compra = self._compras.obtener(id_compra)
         if compra is None or compra.email_usuario != email_usuario:
