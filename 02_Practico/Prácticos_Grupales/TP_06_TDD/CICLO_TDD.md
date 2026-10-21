@@ -45,7 +45,7 @@ Un buen Red falla **por el motivo correcto**: el mensaje de la falla describe el
 | 18 | CP-34: Mercado Pago no disponible | `EstadoCompra.ANULADA` inexistente y un reintento se rechazaba con "ya compraste 6" | la compra se anula y no cuenta para el límite | `_iniciar_pago` y `_cambiar_estado` |
 | 19 a 27 | Mercado Pago simulado y pago en otra pestaña (CP-35, CP-36) | ver sección 8 | ver sección 8 | ver sección 8 |
 
-Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8, 93 al cerrar el ciclo 12, 129 al cerrar el ciclo 18, 201 al cerrar el ciclo 27, 236 al cerrar el ciclo 35 y 251 con las pruebas complementarias de la sección 10). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, las de los ciclos 9 a 12, en la sección 6, las de los ciclos 13 a 18, en la sección 7, y las de los ciclos 19 a 27, en la sección 8.
+Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8, 93 al cerrar el ciclo 12, 129 al cerrar el ciclo 18, 201 al cerrar el ciclo 27, 236 al cerrar el ciclo 35, 251 con las pruebas complementarias de la sección 10 y 256 al cerrar el ciclo 37). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, las de los ciclos 9 a 12, en la sección 6, las de los ciclos 13 a 18, en la sección 7, y las de los ciclos 19 a 27, en la sección 8.
 
 Las secciones 3 a 6 citan fechas puntuales (por ejemplo, "el 09/11/2026") porque registran cómo eran las pruebas en ese momento. Desde el refactor de la sección 7.2, las pruebas calculan sus fechas a partir del día en que se ejecutan.
 
@@ -716,3 +716,21 @@ En el commit `1ff2ffb` (Luca Olguin) se agregaron 15 pruebas, de 236 a 251, para
 | `test_dependencias::test_la_aplicacion_usa_la_hora_del_sistema` | La aplicación usa la hora real del sistema (las demás pruebas usan un reloj fijo) | 1 |
 
 Las dos últimas pruebas cubren líneas que antes quedaban sin cubrir: con ellas, la única sentencia sin cubrir de `app/` es la que crea el Mercado Pago simulado de la aplicación. Los casos quedaron registrados en [BACKLOG.md](BACKLOG.md).
+
+## 11. Ciclos 36 y 37: edad máxima de 100 años (CP-39)
+
+Probando la aplicación se encontró que se podía comprar con una edad de 549 años: solo se rechazaban las edades negativas (CP-18). El grupo fijó como supuesto que la edad de cada visitante está entre 0 y 100 años, inclusive.
+
+| Ciclo | Qué | Red | Green | Refactor | Pruebas |
+|---|---|---|---|---|---|
+| 36 | El servicio rechaza edades mayores a 100 años (CP-39) | `77a615d` | `88de218` | `8e62e5e` | 255 |
+| 37 | `/cotizacion` no cotiza edades mayores a 100 años | `2816d86` | `eb6470c` | — | 256 |
+
+- **Red del ciclo 36:** con 101 y 549 años, el servicio no lanzaba `CompraInvalidaError` (`DID NOT RAISE`) y la API registraba la compra (`assert 201 == 400`). La prueba del valor límite (100 años se acepta) pasó desde el principio: documenta el borde válido, que el sistema ya cumplía.
+- **Mensaje esperado:** la prueba busca "100 años" en el mensaje y no solo "edad", porque "edad" también aparece en el mensaje de CP-27 (hallazgo 3 de la sección 3).
+- **Refactor del ciclo 36:** las validaciones de edad negativa y de edad mayor a 100 quedaron en una sola regla de rango, con la constante `EDAD_MAXIMA`, igual que `CANTIDAD_MAXIMA`. El esquema de la cotización usa la misma constante, así que el límite está en un solo lugar del backend.
+- **Front:**
+  - `validar()` avisa "La edad de cada visitante debe estar entre 0 y 100 años." antes de llamar a la API.
+  - El total no se cotiza con una edad fuera de rango.
+  - El campo tenía `max="120"`, pero el formulario es `novalidate`, así que el navegador no lo controlaba.
+  - Como el resto del front, no tiene pruebas automatizadas: la regla que vale es la del backend.
