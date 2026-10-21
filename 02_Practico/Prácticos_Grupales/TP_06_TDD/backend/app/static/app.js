@@ -515,6 +515,13 @@ async function verificarPago() {
       headers: { "X-Usuario-Email": sesionEnMemoria },
     });
     const datos = await respuesta.json();
+    if (respuesta.status === 404 || datos.detail === "La compra fue anulada") {
+      // La compra se canceló en otra pestaña o ya no existe (por ejemplo,
+      // se borró la base): no hay pago que esperar.
+      dejarDeEsperarPago();
+      if ($("dialogo").open) $("dialogo").close();
+      return "sin_compra";
+    }
     if (!respuesta.ok) return "error";
     if (compraEnEspera !== compra) return datos.pago;
     if (datos.pago === "aprobado") {
@@ -537,13 +544,7 @@ async function verificarPago() {
 
 // Vuelta desde Mercado Pago: el backend consulta el pago a Mercado Pago y, si
 // está aprobado, confirma la compra y envía el mail. El estado que trae la
-// URL solo se usa para explicar un pago que todavía no se aprobó.
-const ESTADOS_DE_PAGO = {
-  pending: ["Pago pendiente", "Mercado Pago está procesando el pago. Te enviamos el mail cuando se apruebe."],
-  in_process: ["Pago pendiente", "Mercado Pago está procesando el pago. Te enviamos el mail cuando se apruebe."],
-  rejected: ["Pago rechazado", "Podés intentar de nuevo con otra tarjeta desde el link de pago."],
-};
-
+// URL solo se usa para elegir qué mostrar si el pago no se aprobó.
 async function confirmarPago(idCompra, idPago) {
   const respuesta = await fetch(`/compras/${encodeURIComponent(idCompra)}/pago`, {
     method: "POST",
@@ -561,38 +562,60 @@ async function confirmarPago(idCompra, idPago) {
 async function informarVueltaDeMercadoPago() {
   const parametros = new URLSearchParams(window.location.search);
   const estado = parametros.get("collection_status") || parametros.get("status");
-  const idCompra = parametros.get("external_reference");
   const idPago = parametros.get("payment_id") || parametros.get("collection_id");
   if (!estado && !idPago) return;
   window.history.replaceState(null, "", window.location.pathname);
-  const detalle = idCompra ? `Compra n.º ${idCompra}.` : "";
 
-  if (!idCompra || !idPago || idPago === "null") {
+  // La URL trae external_reference, que es la referencia única del pago y no
+  // el número de compra (CP-37): la compra es la que quedó esperando el pago
+  // en este navegador.
+  const compra = sesionEnMemoria && leerCompraPendiente();
+  if (!compra) {
     abrirDialogo({
-      titulo: "Pago no completado",
-      mensaje: "No se completó el pago en Mercado Pago.",
-      detalle,
+      titulo: "Volviste de Mercado Pago",
+      mensaje:
+        "Si pagaste, la compra se confirma en la pestaña donde la hiciste y te llega el mail de confirmación.",
     });
     return;
   }
+  if (!idPago || idPago === "null") {
+    mostrarPagoNoCompletado(compra, "No se completó el pago en Mercado Pago.");
+    return;
+  }
   try {
-    const compra = await confirmarPago(idCompra, idPago);
-    if (compra.estado === "CONFIRMADA") {
-      mostrarPagoAprobado(compra);
-      return;
+    const resultado = await confirmarPago(compra.id, idPago);
+    if (resultado.estado === "CONFIRMADA") {
+      dejarDeEsperarPago();
+      mostrarPagoAprobado(resultado);
+    } else if (estado === "rejected") {
+      mostrarPagoNoCompletado(compra, "Mercado Pago rechazó el pago.");
+    } else {
+      esperarPago(compra);
+      mostrarEspera(
+        "Mercado Pago está procesando el pago. Te enviamos el mail cuando se apruebe.",
+      );
     }
-    const [titulo, mensaje] = ESTADOS_DE_PAGO[estado] || [
-      "Pago no completado",
-      "No se completó el pago en Mercado Pago.",
-    ];
-    abrirDialogo({ titulo, mensaje, detalle });
   } catch (error) {
     abrirDialogo({
       titulo: "No pudimos confirmar el pago",
       mensaje: error.message,
-      detalle,
+      detalle: `Compra n.º ${compra.id}.`,
     });
   }
+}
+
+// Volver sin pagar deja la compra pendiente, y sus entradas siguen contando
+// para el límite por fecha: se puede intentar el pago de nuevo o cancelarla.
+function mostrarPagoNoCompletado(compra, motivo) {
+  abrirDialogo({
+    titulo: "Pago no completado",
+    mensaje: `${motivo} Podés intentar pagar de nuevo o cancelar la compra para liberar las entradas.`,
+    detalle: `Compra n.º ${compra.id}.`,
+    urlPago: compra.url_pago,
+  });
+  $("dialogo-pagar").textContent = "Intentar pagar de nuevo";
+  $("dialogo-cerrar").textContent = "Cancelar";
+  compraEnEspera = compra;
 }
 
 mostrarPantalla();

@@ -107,7 +107,8 @@ static/                 ← front: index.html, styles.css y app.js, servidos por
     - El logo es provisorio: el FAQ 17 pide diseñarlo y validarlo con el PO.
 
 14. **Estado de la compra y confirmación del pago.** La compra tiene un estado (`EstadoCompra`): en efectivo o sin costo queda **confirmada** y se envía el mail; con tarjeta queda **pendiente de pago** hasta que Mercado Pago lo aprueba.
-    - Mercado Pago vuelve al sitio con `payment_id` y `external_reference` en la URL. El front los envía a `POST /compras/{id}/pago` y el servicio **consulta el pago a la API de Mercado Pago** (`GET /v1/payments/{id}`) en lugar de confiar en los datos de la URL, que cualquiera puede escribir a mano.
+    - Mercado Pago vuelve al sitio con `payment_id` y `external_reference` en la URL. `external_reference` es la referencia única del pago, no el número de compra (decisión 18): el front toma el número de la compra que quedó esperando el pago en el navegador. Envía el `payment_id` a `POST /compras/{id}/pago` y el servicio **consulta el pago a la API de Mercado Pago** (`GET /v1/payments/{id}`) en lugar de confiar en los datos de la URL, que cualquiera puede escribir a mano.
+    - Si el usuario vuelve sin pagar o con el pago rechazado, el modal "Pago no completado" ofrece intentar el pago de nuevo o cancelar la compra (CP-40), que si no seguiría ocupando entradas.
     - Se confirma solo si el pago está aprobado, corresponde a esa compra (`external_reference`) y es por el total. Una compra de otro usuario responde 404, como si no existiera.
     - Confirmar es idempotente: si la compra ya está confirmada (por ejemplo, el usuario recarga la página), no se consulta otra vez ni se reenvía el mail.
     - Un id de pago que no es numérico no se consulta, para no armar la URL de la API de Mercado Pago con texto arbitrario recibido del front.
