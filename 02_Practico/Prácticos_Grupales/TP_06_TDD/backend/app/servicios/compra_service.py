@@ -90,6 +90,12 @@ class ServicioCompra:
     def anular_compra(self, email_usuario, id_compra):
         """Anula la compra pendiente que el usuario cancela."""
         compra = self._compras.obtener(id_compra)
+        if compra is None or compra.email_usuario != email_usuario:
+            raise CompraNoEncontradaError()
+        if compra.estado == EstadoCompra.CONFIRMADA:
+            raise CompraInvalidaError(
+                "Una compra confirmada no se puede cancelar"
+            )
         self._cambiar_estado(compra, EstadoCompra.ANULADA)
         return compra
 
