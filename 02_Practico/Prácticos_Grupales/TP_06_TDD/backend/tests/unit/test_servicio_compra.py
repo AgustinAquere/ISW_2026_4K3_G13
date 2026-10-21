@@ -653,3 +653,30 @@ def test_dos_verificaciones_al_mismo_tiempo_envian_un_solo_mail(
 
     assert compra.estado == EstadoCompra.CONFIRMADA
     assert len(notificador.enviados) == 1
+
+
+# 12. Cancelar una compra pendiente de pago: la compra se registra
+# antes de pagar, así que cancelarla la anula y libera sus entradas.
+
+
+def test_cp40_cancelar_una_compra_pendiente_la_anula(
+    servicio_mp, compras, notificador
+):
+    compra = compra_con_tarjeta(servicio_mp)
+
+    anulada = servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    assert anulada.estado == EstadoCompra.ANULADA
+    assert compras.obtener(compra.id).estado == EstadoCompra.ANULADA
+    assert notificador.enviados == []
+
+
+def test_cp40_una_compra_cancelada_no_cuenta_para_el_limite(servicio_mp):
+    compra = servicio_mp.comprar(
+        solicitud(cantidad=1, edades=[30], medio_pago=MedioPago.TARJETA)
+    )
+
+    servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+    completa = servicio_mp.comprar(solicitud(cantidad=10, edades=[30] * 10))
+
+    assert completa.cantidad == 10
