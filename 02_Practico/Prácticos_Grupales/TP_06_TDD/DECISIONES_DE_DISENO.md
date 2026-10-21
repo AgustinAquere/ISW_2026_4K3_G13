@@ -115,6 +115,10 @@ static/                 ← front: index.html, styles.css y app.js, servidos por
     - **No se implementó el webhook** (notificaciones IPN) de Mercado Pago: necesita una URL pública a la que Mercado Pago pueda llamar, que no existe en el entorno local. La consecuencia es que, si el usuario paga y cierra la pestaña sin volver al sitio, la compra queda pendiente. Con una URL pública, el webhook podría llamar al mismo `ServicioCompra.confirmar_pago`.
 
 15. **Si Mercado Pago no está disponible, la compra se anula.** Para tener el id que se envía como `external_reference`, la compra se registra antes de crear el pago. Si después Mercado Pago no responde, la compra queda **anulada**: no cuenta para el límite de 10 entradas por fecha (FAQ 27) y no se puede confirmar su pago. Antes de este cambio quedaba registrada sin link de pago y bloqueaba entradas del usuario.
+    - **"Cancelar" en el modal también anula la compra** (`POST /compras/{id}/anulacion`, CP-40). Antes, el botón solo cerraba el modal: la compra seguía pendiente y sus entradas contaban para el límite.
+    - **Antes de anular se busca el pago en Mercado Pago.** Si el usuario pagó y tocó "Cancelar" antes de que el sitio lo detectara, la compra se confirma en lugar de anularse. Si Mercado Pago no responde, la compra no se anula (502), porque no se puede saber si se pagó.
+    - **Cancelar usa el mismo lock** que la confirmación y la verificación del pago. Si llega mientras se verifica, se envía un solo mail.
+    - **Límite:** después de cancelar, el link de pago sigue abierto en Mercado Pago. Si el usuario paga igual, la compra anulada no se confirma. Se podría evitar con la fecha de vencimiento de la preferencia, que no se implementó.
 
 16. **Fechas de las pruebas calculadas a partir del día actual.** Las pruebas no usan fechas fijas (`tests/fechas.py`): una fecha fija termina quedando en el pasado o fuera de la ventana de 31 días y la prueba falla con el paso del tiempo, aunque el sistema no haya cambiado. Cada fecha se busca a partir de hoy según lo que necesita la prueba (el próximo lunes, el próximo 25 de diciembre, una fecha de visita abierta, etc.). Los días de apertura se escriben en ese módulo a partir del FAQ 1, sin usar el código de la aplicación, para no elegir los datos de prueba con la misma lógica que se prueba. Las reglas de fecha siguen recibiendo "ahora" por el reloj inyectado (decisión 3).
 
@@ -150,7 +154,7 @@ Las respuestas del FAQ del PO ([FAQ_PO.md](FAQ_PO.md)) definen la mayoría de lo
 | Hora límite para comprar para el día actual | 17:30 inclusive (17:31 se rechaza) | FAQ 26 | `dominio/calendario.py` |
 | Se debe informar una edad por cada entrada | `len(edades) == cantidad` (CP-27) | Supuesto | `ServicioCompra` |
 | Edad de cada visitante | Entre 0 y 100 años, inclusive (CP-18, CP-39) | Supuesto | `ServicioCompra` (`EDAD_MAXIMA`), `schemas.CotizacionRequest` |
-| Límite de 10 entradas por usuario y fecha, sumando compras | Se cuentan las compras confirmadas y pendientes de pago, no las anuladas | FAQ 27 | `ServicioCompra`, `entradas_compradas()` |
+| Límite de 10 entradas por usuario y fecha, sumando compras | Se cuentan las compras confirmadas y pendientes de pago, no las anuladas (por Mercado Pago caído o porque el usuario las canceló) | FAQ 27 | `ServicioCompra`, `entradas_compradas()` |
 | Momento del mail de confirmación | En efectivo o sin costo, al registrar la compra; con tarjeta, cuando Mercado Pago aprueba el pago | Decisión del grupo (FAQ 5: "Desarrollo") | `ServicioCompra` |
 | Compra con tarjeta de $0 | No se redirige a Mercado Pago y se confirma | Supuesto | `ServicioCompra` |
 | Sin máximo de visitantes por día | No se controla un cupo diario | FAQ 20 | — |
@@ -163,7 +167,7 @@ Las respuestas del FAQ del PO ([FAQ_PO.md](FAQ_PO.md)) definen la mayoría de lo
 - **Trazabilidad:** el nombre o el id de cada prueba contiene el código del caso del `BACKLOG.md` (por ejemplo, `test_cp13_lunes_es_rechazado`, `[CP-08]`).
 - **Patrón Arrange-Act-Assert** y fixtures de pytest (`conftest.py`) para reutilizar la configuración.
 - **Fechas dinámicas:** ninguna prueba usa una fecha fija (decisión 16). Se verificó corriendo la batería completa con 124 "hoy" simulados distintos, entre ellos todos los días de diciembre y enero.
-- **Cobertura:** 99 % de las sentencias de `app/` (256 pruebas). Los repositorios SQLite están cubiertos al 100 %. La única línea sin cubrir es la que crea el Mercado Pago simulado de la aplicación (`obtener_mercado_pago_simulado()` en `dependencias.py`): las pruebas usan su propio simulador.
+- **Cobertura:** 99 % de las sentencias de `app/` (271 pruebas). Los repositorios SQLite están cubiertos al 100 %. La única línea sin cubrir es la que crea el Mercado Pago simulado de la aplicación (`obtener_mercado_pago_simulado()` en `dependencias.py`): las pruebas usan su propio simulador.
 
 El registro de los ciclos Red-Green-Refactor y la verificación de las pruebas mediante mutaciones están en [CICLO_TDD.md](CICLO_TDD.md).
 
