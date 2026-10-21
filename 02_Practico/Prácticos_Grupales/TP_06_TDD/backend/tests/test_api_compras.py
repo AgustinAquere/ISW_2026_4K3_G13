@@ -490,3 +490,88 @@ def test_cp37_un_pago_ajeno_con_el_mismo_numero_de_compra_no_la_confirma(
     assert cuerpo["estado"] == "PENDIENTE_DE_PAGO"
     assert cuerpo["pago"] == "sin_pago"
     assert notificador.enviados == []
+
+
+# 9. Cancelar una compra pendiente de pago desde el modal
+
+
+def cancelar(client, compra, cabeceras):
+    return client.post(f"/compras/{compra['id']}/anulacion", headers=cabeceras)
+
+
+def test_cp40_api_cancelar_libera_las_entradas_de_la_fecha(
+    client, cabecera_usuario
+):
+    compra = client.post(
+        "/compras",
+        json=solicitud_valida(cantidad=1, edades=[30], medio_pago="TARJETA"),
+        headers=cabecera_usuario,
+    ).json()
+
+    respuesta = cancelar(client, compra, cabecera_usuario)
+    otra = client.post(
+        "/compras",
+        json=solicitud_valida(cantidad=10, edades=[30] * 10),
+        headers=cabecera_usuario,
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["estado"] == "ANULADA"
+    assert otra.status_code == 201
+
+
+def test_api_cancelar_sin_sesion_responde_401(client, cabecera_usuario):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    respuesta = cancelar(client, compra, {})
+
+    assert respuesta.status_code == 401
+
+
+def test_api_cancelar_una_compra_inexistente_responde_404(
+    client, cabecera_usuario
+):
+    respuesta = cancelar(client, {"id": 99}, cabecera_usuario)
+
+    assert respuesta.status_code == 404
+
+
+def test_api_cancelar_una_compra_confirmada_responde_400(
+    client, cabecera_usuario
+):
+    compra = client.post(
+        "/compras", json=solicitud_valida(), headers=cabecera_usuario
+    ).json()
+
+    respuesta = cancelar(client, compra, cabecera_usuario)
+
+    assert respuesta.status_code == 400
+    assert "confirmada" in respuesta.json()["detail"]
+
+
+def test_api_cancelar_una_compra_ya_pagada_la_confirma(
+    client, cabecera_usuario, notificador
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+    pagar_en_checkout(client, compra["url_pago"], "APRO")
+
+    respuesta = cancelar(client, compra, cabecera_usuario)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["estado"] == "CONFIRMADA"
+    assert len(notificador.enviados) == 1
+
+
+def test_api_cancelar_con_mercado_pago_caido_responde_502(
+    client, cabecera_usuario, pasarela_pago, monkeypatch
+):
+    compra = comprar_con_tarjeta(client, cabecera_usuario)
+
+    def mercado_pago_caido(referencia):
+        raise PagoNoDisponibleError()
+
+    monkeypatch.setattr(pasarela_pago, "buscar_pago", mercado_pago_caido)
+
+    respuesta = cancelar(client, compra, cabecera_usuario)
+
+    assert respuesta.status_code == 502
