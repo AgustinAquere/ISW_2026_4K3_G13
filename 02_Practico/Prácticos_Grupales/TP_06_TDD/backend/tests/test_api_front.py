@@ -34,3 +34,11 @@ def test_api_no_cotiza_edades_negativas(client):
     )
 
     assert respuesta.status_code == 422
+
+
+def test_api_no_cotiza_edades_mayores_a_100(client):
+    respuesta = client.post(
+        "/cotizacion", json={"edades": [40, 101], "tipo_pase": "REGULAR"}
+    )
+
+    assert respuesta.status_code == 422

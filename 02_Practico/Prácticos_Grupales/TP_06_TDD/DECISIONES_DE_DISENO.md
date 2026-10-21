@@ -153,6 +153,7 @@ Las respuestas del FAQ del PO ([FAQ_PO.md](FAQ_PO.md)) definen la mayoría de lo
 | Anticipación máxima | 31 días (el día 31 se acepta, el 32 no) | Supuesto: el FAQ 25 dice "no más de un mes" | `dominio/calendario.py` |
 | Hora límite para comprar para el día actual | 17:30 inclusive (17:31 se rechaza) | FAQ 26 | `dominio/calendario.py` |
 | Se debe informar una edad por cada entrada | `len(edades) == cantidad` (CP-27) | Supuesto | `ServicioCompra` |
+| Edad de cada visitante | Entre 0 y 100 años, inclusive (CP-18, CP-39) | Supuesto | `ServicioCompra` (`EDAD_MAXIMA`), `schemas.CotizacionRequest` |
 | Límite de 10 entradas por usuario y fecha, sumando compras | Se cuentan las compras confirmadas y pendientes de pago, no las anuladas (por Mercado Pago caído o porque el usuario las canceló) | FAQ 27 | `ServicioCompra`, `entradas_compradas()` |
 | Momento del mail de confirmación | En efectivo o sin costo, al registrar la compra; con tarjeta, cuando Mercado Pago aprueba el pago | Decisión del grupo (FAQ 5: "Desarrollo") | `ServicioCompra` |
 | Compra con tarjeta de $0 | No se redirige a Mercado Pago y se confirma | Supuesto | `ServicioCompra` |
@@ -161,12 +162,12 @@ Las respuestas del FAQ del PO ([FAQ_PO.md](FAQ_PO.md)) definen la mayoría de lo
 ## 5. Diseño de las pruebas
 
 - **Pirámide de pruebas:** la mayoría son **unitarias** del dominio, del servicio y de los adaptadores (`tests/unit/`); menos pruebas **de API** (`tests/test_api_compras.py`, `tests/test_api_front.py`) verifican el contrato HTTP (códigos, JSON, cabeceras), el flujo completo de CP-01 y que el front se sirva. El front (JavaScript) no tiene pruebas automatizadas: se probó a mano en el navegador, en escritorio y en celular.
-- **Clases de equivalencia y valores límite:** cada regla se prueba en sus bordes, por ejemplo cantidad 0, -1, 1, 10 y 11; edades 0, 3, 4, 15, 16, 59 y 60; fechas a 31 y 32 días; horas 17:30 y 17:31.
+- **Clases de equivalencia y valores límite:** cada regla se prueba en sus bordes, por ejemplo cantidad 0, -1, 1, 10 y 11; edades -1, 0, 3, 4, 15, 16, 59, 60, 100 y 101; fechas a 31 y 32 días; horas 17:30 y 17:31.
 - **Una razón de fallo por prueba:** los helpers `solicitud()` / `solicitud_valida()` arman una solicitud válida y cada prueba cambia solo el dato que evalúa.
 - **Trazabilidad:** el nombre o el id de cada prueba contiene el código del caso del `BACKLOG.md` (por ejemplo, `test_cp13_lunes_es_rechazado`, `[CP-08]`).
 - **Patrón Arrange-Act-Assert** y fixtures de pytest (`conftest.py`) para reutilizar la configuración.
 - **Fechas dinámicas:** ninguna prueba usa una fecha fija (decisión 16). Se verificó corriendo la batería completa con 124 "hoy" simulados distintos, entre ellos todos los días de diciembre y enero.
-- **Cobertura:** 99 % de las sentencias de `app/` (266 pruebas). Los repositorios SQLite están cubiertos al 100 %. La única línea sin cubrir es la que crea el Mercado Pago simulado de la aplicación (`obtener_mercado_pago_simulado()` en `dependencias.py`): las pruebas usan su propio simulador.
+- **Cobertura:** 99 % de las sentencias de `app/` (271 pruebas). Los repositorios SQLite están cubiertos al 100 %. La única línea sin cubrir es la que crea el Mercado Pago simulado de la aplicación (`obtener_mercado_pago_simulado()` en `dependencias.py`): las pruebas usan su propio simulador.
 
 El registro de los ciclos Red-Green-Refactor y la verificación de las pruebas mediante mutaciones están en [CICLO_TDD.md](CICLO_TDD.md).
 

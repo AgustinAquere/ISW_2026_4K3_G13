@@ -2,6 +2,7 @@
 
 const CLAVE_SESION = "ecoharmony.email";
 const CANTIDAD_MAXIMA = 10;
+const EDAD_MAXIMA = 100;
 const $ = (id) => document.getElementById(id);
 
 const pesos = new Intl.NumberFormat("es-AR", {
@@ -186,7 +187,7 @@ function dibujarEdades() {
     const campo = document.createElement("input");
     campo.type = "number";
     campo.min = "0";
-    campo.max = "120";
+    campo.max = String(EDAD_MAXIMA);
     campo.inputMode = "numeric";
     campo.id = `edad-${i}`;
     campo.value = anteriores[i] ?? "";
@@ -215,6 +216,10 @@ function edades() {
   );
 }
 
+function edadValida(edad) {
+  return Number.isInteger(edad) && edad >= 0 && edad <= EDAD_MAXIMA;
+}
+
 function opcionElegida(nombre) {
   return document.querySelector(`input[name="${nombre}"]:checked`)?.value;
 }
@@ -226,7 +231,7 @@ async function cotizar() {
   const lista = edades();
   const tipoPase = opcionElegida("tipo_pase");
   const completo =
-    tipoPase && lista.length > 0 && lista.every((e) => e !== null && e >= 0);
+    tipoPase && lista.length > 0 && lista.every(edadValida);
   if (!completo) {
     $("total").textContent = "—";
     return;
@@ -258,8 +263,11 @@ function validar() {
   if (!Number.isInteger(n) || n < 1 || n > CANTIDAD_MAXIMA) {
     return `La cantidad de entradas debe estar entre 1 y ${CANTIDAD_MAXIMA}.`;
   }
-  if (edades().some((e) => e === null || e < 0)) {
+  if (edades().some((e) => e === null)) {
     return "Indicá la edad de cada visitante.";
+  }
+  if (!edades().every(edadValida)) {
+    return `La edad de cada visitante debe estar entre 0 y ${EDAD_MAXIMA} años.`;
   }
   if (!opcionElegida("tipo_pase")) return "Elegí el tipo de pase.";
   if (!opcionElegida("medio_pago")) return "Elegí la forma de pago.";
