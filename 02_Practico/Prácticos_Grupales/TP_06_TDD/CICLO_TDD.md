@@ -45,7 +45,7 @@ Un buen Red falla **por el motivo correcto**: el mensaje de la falla describe el
 | 18 | CP-34: Mercado Pago no disponible | `EstadoCompra.ANULADA` inexistente y un reintento se rechazaba con "ya compraste 6" | la compra se anula y no cuenta para el límite | `_iniciar_pago` y `_cambiar_estado` |
 | 19 a 27 | Mercado Pago simulado y pago en otra pestaña (CP-35, CP-36) | ver sección 8 | ver sección 8 | ver sección 8 |
 
-Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8, 93 al cerrar el ciclo 12, 129 al cerrar el ciclo 18 y 201 al cerrar el ciclo 27). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, las de los ciclos 9 a 12, en la sección 6, las de los ciclos 13 a 18, en la sección 7, y las de los ciclos 19 a 27, en la sección 8.
+Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8, 93 al cerrar el ciclo 12, 129 al cerrar el ciclo 18, 201 al cerrar el ciclo 27, 236 al cerrar el ciclo 35 y 251 con las pruebas complementarias de la sección 10). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, las de los ciclos 9 a 12, en la sección 6, las de los ciclos 13 a 18, en la sección 7, y las de los ciclos 19 a 27, en la sección 8.
 
 Las secciones 3 a 6 citan fechas puntuales (por ejemplo, "el 09/11/2026") porque registran cómo eran las pruebas en ese momento. Desde el refactor de la sección 7.2, las pruebas calculan sus fechas a partir del día en que se ejecutan.
 
@@ -700,3 +700,19 @@ Estos ciclos se hicieron en las ramas `feat/pulido-ux-ui` y `feat/registro-simul
 
 **Ciclo 33:** reemplaza las dos pruebas del logo de los ciclos 31 y 32 por una que exige que el mail no tenga imágenes. El cambio de pantallas y el botón "Registrarme" son front y no tienen pruebas automatizadas.
 
+## 10. Pruebas complementarias: valores límite y reglas sin verificar
+
+En el commit `1ff2ffb` (Luca Olguin) se agregaron 15 pruebas, de 236 a 251, para valores límite y reglas que ya estaban implementadas pero que la batería no verificaba. **No son un ciclo Red-Green-Refactor:** el comportamiento ya existía, así que las pruebas pasaron desde el primer momento y no cambió el código de la aplicación. Su objetivo es que, si alguien rompe una de esas reglas más adelante, una prueba falle.
+
+| Prueba | Qué verifica | Casos |
+|---|---|---|
+| `test_api_compras::test_api_rechaza_la_compra_con_un_mensaje_claro` | Las reglas de negocio también se respetan por la API: responde 400 con un mensaje que explica el motivo | 5: fecha pasada (CP-12), a más de 31 días (CP-16), cantidad 0 (CP-08), edades que no coinciden con la cantidad (CP-27) y edad negativa (CP-18) |
+| `test_calendario::test_los_dias_vecinos_a_los_feriados_estan_abiertos` | Valores límite de CP-14 y CP-15: el parque abre el día antes y el día después de cada feriado | 4: 24/12, 26/12, 31/12 y 2/1 |
+| `test_calendario::test_cp17_despues_de_las_17_30_se_puede_comprar_para_otro_dia` | La hora límite de las 17:30 solo aplica a la compra para el mismo día | 1 |
+| `test_servicio_compra::test_cp18_edad_0_es_aceptada` | Valor límite de CP-18: 0 años es una edad válida | 1 |
+| `test_servicio_compra::test_cp28_una_compra_pendiente_de_pago_cuenta_para_el_limite` | Una compra con tarjeta que espera el pago cuenta para el límite de 10 entradas por fecha (FAQ 27) | 1 |
+| `test_servicio_compra::test_total_con_pase_vip_aplica_los_descuentos_por_edad` | El total de una compra VIP aplica los descuentos por edad | 1 |
+| `test_dependencias::test_el_mail_del_log_informa_destinatario_cantidad_y_fecha` | Sin SMTP, el mail que se escribe en el log informa el destinatario, la cantidad y la fecha | 1 |
+| `test_dependencias::test_la_aplicacion_usa_la_hora_del_sistema` | La aplicación usa la hora real del sistema (las demás pruebas usan un reloj fijo) | 1 |
+
+Las dos últimas pruebas cubren líneas que antes quedaban sin cubrir: con ellas, la única sentencia sin cubrir de `app/` es la que crea el Mercado Pago simulado de la aplicación. Los casos quedaron registrados en [BACKLOG.md](BACKLOG.md).

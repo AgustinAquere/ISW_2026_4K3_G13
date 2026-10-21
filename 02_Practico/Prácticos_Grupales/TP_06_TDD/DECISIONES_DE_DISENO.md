@@ -59,7 +59,7 @@ static/                 ← front: index.html, styles.css y app.js, servidos por
 
 ### Decisiones y justificación
 
-1. **Reglas de negocio en funciones puras (`calendario.py`, `precios.py`).** Se prueban sin servidor ni base de datos, las pruebas son rápidas (129 pruebas en unos pocos segundos) y cada regla tiene un único lugar donde cambiarla.
+1. **Reglas de negocio en funciones puras (`calendario.py`, `precios.py`).** Se prueban sin servidor ni base de datos, las pruebas son rápidas (251 pruebas en unos pocos segundos) y cada regla tiene un único lugar donde cambiarla.
 
 2. **Servicio de aplicación (`ServicioCompra`) con inyección de dependencias.** El servicio recibe por constructor el reloj, los repositorios, el notificador y la pasarela de pago. Así, en las pruebas se reemplazan por dobles (`RelojFijo`, `NotificadorEnMemoria`, `MercadoPagoQueInforma` o la pasarela contra el Mercado Pago simulado) y en producción por los adaptadores reales. Esta decisión surgió de TDD: para escribir la prueba del mail (CP-25) hacía falta observar el envío sin mandar un mail real.
 
@@ -163,7 +163,7 @@ Las respuestas del FAQ del PO ([FAQ_PO.md](FAQ_PO.md)) definen la mayoría de lo
 - **Trazabilidad:** el nombre o el id de cada prueba contiene el código del caso del `BACKLOG.md` (por ejemplo, `test_cp13_lunes_es_rechazado`, `[CP-08]`).
 - **Patrón Arrange-Act-Assert** y fixtures de pytest (`conftest.py`) para reutilizar la configuración.
 - **Fechas dinámicas:** ninguna prueba usa una fecha fija (decisión 16). Se verificó corriendo la batería completa con 124 "hoy" simulados distintos, entre ellos todos los días de diciembre y enero.
-- **Cobertura:** 99 % de las sentencias de `app/` (129 pruebas). Los repositorios SQLite están cubiertos al 100 %. Las únicas líneas sin cubrir usan el reloj real (`datetime.now()` y `obtener_reloj()`, que las pruebas reemplazan por un reloj fijo) y la escritura en el log del mail simulado.
+- **Cobertura:** 99 % de las sentencias de `app/` (251 pruebas). Los repositorios SQLite están cubiertos al 100 %. La única línea sin cubrir es la que crea el Mercado Pago simulado de la aplicación (`obtener_mercado_pago_simulado()` en `dependencias.py`): las pruebas usan su propio simulador.
 
 El registro de los ciclos Red-Green-Refactor y la verificación de las pruebas mediante mutaciones están en [CICLO_TDD.md](CICLO_TDD.md).
 
