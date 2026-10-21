@@ -350,7 +350,54 @@ function mostrarCompra(compra) {
   $("dialogo-pagar").textContent = "Pagar con Mercado Pago";
 }
 
-$("dialogo-cerrar").addEventListener("click", () => $("dialogo").close());
+// "Cancelar" anula la compra que espera el pago: la compra se registra al
+// confirmarla y, si no, sus entradas siguen contando para el límite de 10
+// por fecha. Esc hace lo mismo que el botón.
+$("dialogo-cerrar").addEventListener("click", cerrarDialogo);
+$("dialogo").addEventListener("cancel", (evento) => {
+  evento.preventDefault();
+  cerrarDialogo();
+});
+
+async function cerrarDialogo() {
+  const compra = compraEnEspera;
+  if (!compra) {
+    $("dialogo").close();
+    return;
+  }
+  const boton = $("dialogo-cerrar");
+  boton.disabled = true;
+  try {
+    const respuesta = await fetch(`/compras/${compra.id}/anulacion`, {
+      method: "POST",
+      headers: { "X-Usuario-Email": sesionEnMemoria },
+    });
+    const datos = await respuesta.json();
+    if (respuesta.ok && datos.estado === "CONFIRMADA") {
+      // Ya estaba pagada: el backend la confirmó en lugar de anularla.
+      dejarDeEsperarPago();
+      mostrarPagoAprobado(datos);
+    } else if (respuesta.ok || respuesta.status === 404) {
+      dejarDeEsperarPago();
+      $("dialogo").close();
+    } else if (respuesta.status === 400) {
+      // La verificación del pago la confirmó mientras tanto.
+      await verificarPago();
+    } else {
+      mostrarEspera(`${datos.detail} No se canceló la compra.`);
+    }
+  } catch {
+    mostrarEspera("No se pudo conectar con el servidor. No se canceló la compra.");
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+function dejarDeEsperarPago() {
+  compraEnEspera = null;
+  guardarCompraPendiente(null);
+  clearInterval(temporizadorDePago);
+}
 
 // Mercado Pago se abre en otra pestaña: esta pestaña pregunta al backend si
 // la compra ya se pagó, cada 5 segundos y al volver a mirarla.
@@ -463,9 +510,7 @@ async function verificarPago() {
     if (!respuesta.ok) return "error";
     if (compraEnEspera !== compra) return datos.pago;
     if (datos.pago === "aprobado") {
-      compraEnEspera = null;
-      guardarCompraPendiente(null);
-      clearInterval(temporizadorDePago);
+      dejarDeEsperarPago();
       mostrarPagoAprobado(datos);
     } else if (datos.pago === "rechazado") {
       $("dialogo-titulo").textContent = "Pago rechazado";
