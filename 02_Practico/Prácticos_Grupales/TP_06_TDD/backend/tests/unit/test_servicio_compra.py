@@ -765,9 +765,17 @@ def test_cancelar_mientras_se_verifica_el_pago_envia_un_solo_mail(
     mercado_pago.pago = PagoInformado(
         "pago-1", True, compra.referencia_externa(), compra.total
     )
+    errores = []
+
+    def cancelar(email_usuario, id_compra):
+        try:
+            servicio.anular_compra(email_usuario, id_compra)
+        except CompraInvalidaError as error:
+            errores.append(str(error))
+
     hilos = [
         threading.Thread(target=accion, args=(EMAIL_REGISTRADO, compra.id))
-        for accion in (servicio.verificar_pago, servicio.anular_compra)
+        for accion in (servicio.verificar_pago, cancelar)
     ]
 
     for hilo in hilos:
@@ -777,3 +785,5 @@ def test_cancelar_mientras_se_verifica_el_pago_envia_un_solo_mail(
 
     assert compra.estado == EstadoCompra.CONFIRMADA
     assert len(notificador.enviados) == 1
+    # Si la verificación confirma primero, cancelar ya no puede anular.
+    assert all("confirmada" in error for error in errores)
