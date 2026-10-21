@@ -88,14 +88,24 @@ class ServicioCompra:
             return compra, pago
 
     def anular_compra(self, email_usuario, id_compra):
-        """Anula la compra pendiente que el usuario cancela."""
-        compra = self._compra_del_usuario(email_usuario, id_compra)
-        if compra.estado == EstadoCompra.CONFIRMADA:
-            raise CompraInvalidaError(
-                "Una compra confirmada no se puede cancelar"
-            )
-        self._cambiar_estado(compra, EstadoCompra.ANULADA)
-        return compra
+        """Anula la compra pendiente que el usuario cancela.
+
+        Si Mercado Pago ya aprobó el pago, la compra se confirma en
+        lugar de anularse. Lanza CompraNoEncontradaError,
+        CompraInvalidaError o PagoNoDisponibleError.
+        """
+        with self._pagos_en_curso:
+            compra = self._compra_del_usuario(email_usuario, id_compra)
+            if compra.estado == EstadoCompra.CONFIRMADA:
+                raise CompraInvalidaError(
+                    "Una compra confirmada no se puede cancelar"
+                )
+            pago = self._pasarela_pago.buscar_pago(compra.referencia_externa())
+            if pago is not None and pago.aprobado:
+                self._aplicar_pago(compra, pago)
+                return compra
+            self._cambiar_estado(compra, EstadoCompra.ANULADA)
+            return compra
 
     def _compra_del_usuario(self, email_usuario, id_compra):
         # Una compra de otro usuario se informa como inexistente.
