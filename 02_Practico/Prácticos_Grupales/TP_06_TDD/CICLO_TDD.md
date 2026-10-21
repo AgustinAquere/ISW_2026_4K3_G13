@@ -45,7 +45,7 @@ Un buen Red falla **por el motivo correcto**: el mensaje de la falla describe el
 | 18 | CP-34: Mercado Pago no disponible | `EstadoCompra.ANULADA` inexistente y un reintento se rechazaba con "ya compraste 6" | la compra se anula y no cuenta para el límite | `_iniciar_pago` y `_cambiar_estado` |
 | 19 a 27 | Mercado Pago simulado y pago en otra pestaña (CP-35, CP-36) | ver sección 8 | ver sección 8 | ver sección 8 |
 
-Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8, 93 al cerrar el ciclo 12, 129 al cerrar el ciclo 18, 201 al cerrar el ciclo 27, 236 al cerrar el ciclo 35 y 251 con las pruebas complementarias de la sección 10). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, las de los ciclos 9 a 12, en la sección 6, las de los ciclos 13 a 18, en la sección 7, y las de los ciclos 19 a 27, en la sección 8.
+Al cerrar cada ciclo se ejecutó la batería completa de pruebas, que quedó en verde (52 pruebas al cerrar el ciclo 6, 62 al cerrar el ciclo 7, 68 al cerrar el ciclo 8, 93 al cerrar el ciclo 12, 129 al cerrar el ciclo 18, 201 al cerrar el ciclo 27, 236 al cerrar el ciclo 35, 251 con las pruebas complementarias de la sección 10 y 266 al cerrar el ciclo 41). Las mutaciones de la sección 3 se hicieron con 52 pruebas; las de los ciclos 7 y 8 están en las secciones 4 y 5, las de los ciclos 9 a 12, en la sección 6, las de los ciclos 13 a 18, en la sección 7, y las de los ciclos 19 a 27, en la sección 8.
 
 Las secciones 3 a 6 citan fechas puntuales (por ejemplo, "el 09/11/2026") porque registran cómo eran las pruebas en ese momento. Desde el refactor de la sección 7.2, las pruebas calculan sus fechas a partir del día en que se ejecutan.
 
@@ -716,3 +716,39 @@ En el commit `1ff2ffb` (Luca Olguin) se agregaron 15 pruebas, de 236 a 251, para
 | `test_dependencias::test_la_aplicacion_usa_la_hora_del_sistema` | La aplicación usa la hora real del sistema (las demás pruebas usan un reloj fijo) | 1 |
 
 Las dos últimas pruebas cubren líneas que antes quedaban sin cubrir: con ellas, la única sentencia sin cubrir de `app/` es la que crea el Mercado Pago simulado de la aplicación. Los casos quedaron registrados en [BACKLOG.md](BACKLOG.md).
+
+## 12. Ciclos 38 a 41: cancelar una compra pendiente de pago (CP-40)
+
+Probando la aplicación se encontró este caso:
+
+1. Se compra 1 entrada con tarjeta.
+2. En el modal se toca "Cancelar", sin pagar.
+3. Se intenta comprar 10 entradas para la misma fecha, y se rechaza: "ya compraste 1".
+
+La compra se registra al confirmarla, porque Mercado Pago necesita su número (decisión 15), y las compras pendientes cuentan para el límite (FAQ 27). Pero "Cancelar" solo cerraba el modal, así que esas entradas quedaban reservadas para siempre.
+
+| Ciclo | Qué | Red | Green | Refactor | Pruebas |
+|---|---|---|---|---|---|
+| 38 | `anular_compra` anula la compra pendiente y libera sus entradas | `502635d` | `87645a2` | — | 253 |
+| 39 | Solo el dueño puede cancelar, y una compra confirmada no se cancela | `515e559` | `4252755` | `6454b5b` | 257 |
+| 40 | Una compra ya pagada se confirma en lugar de anularse; con Mercado Pago caído no se anula | `355e733` | `cfaad2b` | — | 260 |
+| 41 | `POST /compras/{id}/anulacion` | `ecae674` | `7f60c0c` | — | 266 |
+
+- **Red del ciclo 38:** `AttributeError: 'ServicioCompra' object has no attribute 'anular_compra'`.
+- **Red del ciclo 39:**
+  - La compra de otro usuario y la confirmada se anulaban (`DID NOT RAISE`).
+  - Una compra inexistente fallaba con `AttributeError`.
+  - La prueba de cancelar dos veces pasó desde el principio: documenta un comportamiento que el Green no debía romper.
+- **Refactor del ciclo 39:** `_compra_del_usuario` reúne la búsqueda de la compra y el control de su dueño, que `anular_compra` y `_compra_con_pago_pendiente` repetían.
+- **Ciclo 40, el usuario pagó y después tocó "Cancelar":** la compra se anulaba aunque Mercado Pago ya hubiera aprobado el pago (`ANULADA == CONFIRMADA`).
+- **Ciclo 40, la prueba de concurrencia:** cancelar mientras se verifica el pago.
+  - En el Red pasó, porque `anular_compra` todavía no consultaba a Mercado Pago.
+  - Con el Green sin el lock, falló en tres corridas seguidas con `assert 2 == 1`: se enviaban dos mails.
+  - Con el lock, pasa.
+  - La prueba registra el error "Una compra confirmada no se puede cancelar", que aparece cuando la verificación confirma primero, en lugar de dejarlo escapar del hilo.
+- **Red del ciclo 41:** la ruta no existía (`405`).
+- **Front:**
+  - "Cancelar" y Esc llaman a `POST /compras/{id}/anulacion` y dejan de verificar el pago.
+  - Si la respuesta es la compra confirmada, muestran el pago aprobado.
+  - Como el resto del front, no tiene pruebas automatizadas.
+  - El caso completo (1 entrada con tarjeta, cancelar, 10 entradas para la misma fecha) se probó por HTTP contra la aplicación con el Mercado Pago simulado.
