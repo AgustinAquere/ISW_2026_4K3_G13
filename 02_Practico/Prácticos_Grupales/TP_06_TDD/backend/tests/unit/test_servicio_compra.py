@@ -680,3 +680,46 @@ def test_cp40_una_compra_cancelada_no_cuenta_para_el_limite(servicio_mp):
     completa = servicio_mp.comprar(solicitud(cantidad=10, edades=[30] * 10))
 
     assert completa.cantidad == 10
+
+
+def test_cancelar_una_compra_inexistente_es_rechazado(servicio_mp):
+    with pytest.raises(CompraNoEncontradaError):
+        servicio_mp.anular_compra(EMAIL_REGISTRADO, 99)
+
+
+def test_cancelar_una_compra_de_otro_usuario_es_rechazado(
+    reloj, compras, notificador, mercado_pago
+):
+    otro_usuario = "otro@ecoharmony.com"
+    servicio = ServicioCompra(
+        reloj,
+        RepositorioUsuariosEnMemoria([EMAIL_REGISTRADO, otro_usuario]),
+        compras,
+        notificador,
+        mercado_pago,
+    )
+    compra = compra_con_tarjeta(servicio)
+
+    with pytest.raises(CompraNoEncontradaError):
+        servicio.anular_compra(otro_usuario, compra.id)
+
+    assert compras.obtener(compra.id).estado == EstadoCompra.PENDIENTE_DE_PAGO
+
+
+def test_una_compra_confirmada_no_se_puede_cancelar(servicio_mp, compras):
+    compra = servicio_mp.comprar(solicitud(medio_pago=MedioPago.EFECTIVO))
+
+    with pytest.raises(CompraInvalidaError, match="confirmada"):
+        servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    assert compras.obtener(compra.id).estado == EstadoCompra.CONFIRMADA
+
+
+def test_cancelar_dos_veces_la_misma_compra_no_falla(servicio_mp):
+    # Por ejemplo, un doble clic en "Cancelar".
+    compra = compra_con_tarjeta(servicio_mp)
+    servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    anulada = servicio_mp.anular_compra(EMAIL_REGISTRADO, compra.id)
+
+    assert anulada.estado == EstadoCompra.ANULADA
