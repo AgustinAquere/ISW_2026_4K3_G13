@@ -34,8 +34,7 @@ Las cuatro pruebas de usuario de la tarjeta están automatizadas: CP-01 (pasa), 
   - Imports ordenados: biblioteca estándar, terceros y módulos propios (`isort`).
   - Docstrings en todo módulo, clase, función y método público (`pydocstyle`, convención `pep257`). Las pruebas no llevan: no son API pública y su nombre ya describe el caso.
   - Reglas `flake8-bugbear` (por ejemplo, encadenar excepciones con `raise ... from`).
-  - Nombres del dominio en español, el mismo idioma de la User Story, para que el código use el vocabulario del negocio.
-- **Formato:** `ruff format`, para que el estilo no dependa de quién escribe el código.
+
 
 ## 3. Arquitectura
 
