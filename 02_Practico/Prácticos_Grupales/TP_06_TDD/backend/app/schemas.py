@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 from app.dominio.modelos import EstadoCompra, MedioPago, TipoPase
+from app.servicios.compra_service import EDAD_MAXIMA
 
 
 class CompraRequest(BaseModel):
@@ -78,7 +79,7 @@ class ConfirmacionPagoRequest(BaseModel):
 class CotizacionRequest(BaseModel):
     """Edades y pase para calcular el total."""
 
-    edades: list[Annotated[int, Field(ge=0)]]
+    edades: list[Annotated[int, Field(ge=0, le=EDAD_MAXIMA)]]
     tipo_pase: TipoPase
 
 

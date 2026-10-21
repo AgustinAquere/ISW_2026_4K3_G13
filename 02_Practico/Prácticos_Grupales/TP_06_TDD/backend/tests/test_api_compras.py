@@ -182,8 +182,9 @@ def test_api_rechaza_fecha_con_parque_cerrado(client, cabecera_usuario):
         ({"cantidad": 0, "edades": []}, "cantidad"),
         ({"cantidad": 3, "edades": [25, 30]}, "edad"),
         ({"edades": [25, -1]}, "edad"),
+        ({"edades": [25, 549]}, "100 años"),
     ],
-    ids=["CP-12", "CP-16", "CP-08", "CP-27", "CP-18"],
+    ids=["CP-12", "CP-16", "CP-08", "CP-27", "CP-18", "CP-39"],
 )
 def test_api_rechaza_la_compra_con_un_mensaje_claro(
     client, cabecera_usuario, cambios, mensaje

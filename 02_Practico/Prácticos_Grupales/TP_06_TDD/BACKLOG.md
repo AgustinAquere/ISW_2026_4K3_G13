@@ -56,6 +56,7 @@ Documentar los casos de prueba definidos para el sistema de compra de entradas, 
 | CP-20 | Comprar una entrada para una persona mayor de 3 y hasta 15 años, inclusive | Se aplica un descuento del 50 % | Refactorizado | `test_precios::test_cp20_*` (4 y 15) |
 | CP-21 | Comprar una entrada para una persona mayor de 15 y menor de 60 años | No se aplica descuento por edad | Refactorizado | `test_precios::test_cp21_*` (16 y 59) |
 | CP-22 | Comprar una entrada para una persona de 60 años o más | Se aplica un descuento del 50 % | Refactorizado | `test_precios::test_cp22_*` (60 y 85) |
+| CP-39 | Ingresar una edad mayor a 100 años | La compra es rechazada y no se cotiza el total | Refactorizado | `test_servicio_compra::test_cp39_edad_mayor_a_100_es_rechazada` (101 y 549), `test_servicio_compra::test_cp39_edad_100_es_aceptada` (valor límite), `test_api_compras::test_api_rechaza_la_compra_con_un_mensaje_claro[CP-39]`, `test_api_front::test_api_no_cotiza_edades_mayores_a_100` |
 
 ### 5. Modalidades de pago
 
@@ -89,7 +90,7 @@ Documentar los casos de prueba definidos para el sistema de compra de entradas, 
 | Pase VIP y descuento por edad sobre VIP | El VIP cuesta más y también recibe el descuento | `test_precios::test_pase_vip_*`, `test_precios::test_descuento_por_edad_*`, `test_servicio_compra::test_total_con_pase_vip_aplica_los_descuentos_por_edad` |
 | Días vecinos a los feriados (24/12, 26/12, 31/12 y 2/1) | El parque abre (valores límite de CP-14 y CP-15) | `test_calendario::test_los_dias_vecinos_a_los_feriados_estan_abiertos` |
 | Compra con tarjeta pendiente de pago (FAQ 27) | Cuenta para el límite de 10 entradas por fecha | `test_servicio_compra::test_cp28_una_compra_pendiente_de_pago_cuenta_para_el_limite` |
-| Reglas de negocio por la API | Fecha pasada, a más de 31 días, cantidad 0, edades que no coinciden con la cantidad y edad negativa responden 400 con un mensaje claro | `test_api_compras::test_api_rechaza_la_compra_con_un_mensaje_claro` |
+| Reglas de negocio por la API | Fecha pasada, a más de 31 días, cantidad 0, edades que no coinciden con la cantidad y edad negativa o mayor a 100 años responden 400 con un mensaje claro | `test_api_compras::test_api_rechaza_la_compra_con_un_mensaje_claro` |
 | Total de una compra con edades mixtas | Suma el precio de cada visitante | `test_servicio_compra::test_total_de_la_compra_*` |
 | Compra válida | Queda registrada con un id | `test_servicio_compra::test_compra_realizada_queda_registrada` |
 | Compra rechazada | No se registra ni envía mail | `test_servicio_compra::test_compra_rechazada_no_envia_mail_ni_se_registra` |
@@ -108,7 +109,7 @@ Documentar los casos de prueba definidos para el sistema de compra de entradas, 
 | Compra con tarjeta de $0 | No se redirige a Mercado Pago | `test_servicio_compra::test_compra_con_tarjeta_sin_costo_no_redirige_a_mercado_pago` |
 | Mail por SMTP | Llega al usuario con número de compra, cantidad, fecha y total, e informa el pago (aprobado con Mercado Pago, en boletería o sin costo); si el envío falla, la compra no falla | `test_notificador_smtp::*` |
 | Fechas del calendario | Solo se ofrecen fechas abiertas, de hoy a 31 días, y hoy solo hasta las 17:30 | `test_calendario::test_fechas_disponibles_*`, `test_despues_de_las_17_30_*`, `test_api_front::test_api_informa_las_fechas_disponibles` |
-| Total antes de pagar | Se cotiza con los mismos precios y descuentos que la compra | `test_api_front::test_api_cotiza_*`, `test_api_front::test_api_no_cotiza_edades_negativas` |
+| Total antes de pagar | Se cotiza con los mismos precios y descuentos que la compra | `test_api_front::test_api_cotiza_*`, `test_api_front::test_api_no_cotiza_edades_negativas`, `test_api_front::test_api_no_cotiza_edades_mayores_a_100` |
 | Front | Se sirve en `/` | `test_api_front::test_la_pagina_de_compra_se_sirve_en_la_raiz` |
 | Configuración | Con credenciales en `.env` se usan Mercado Pago y SMTP reales; sin ellas, los simulados (el mail del log informa destinatario, cantidad y fecha); la aplicación usa la hora del sistema | `test_dependencias::*` |
 
